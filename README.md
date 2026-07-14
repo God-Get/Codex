@@ -11,16 +11,14 @@ CODEX is an open, reproducible framework for preparing, maintaining, publishing,
 
 The repository contains a minimal TypeScript implementation:
 
-- `@codex/core` — canonical project and object interfaces;
-- `@codex/registry` — controlled object, relation, lifecycle, and semantic relation rules;
-- `@codex/validator` — identifier, registry, uniqueness, reference, and semantic relationship validation;
+- `@codex/core` — canonical project, object, diagnostic, and validation-report interfaces;
+- `@codex/registry` — controlled vocabularies loaded from `registry/*.json`;
+- `@codex/validator` — identifier, SemVer, registry, uniqueness, relationship, and graph-cycle validation;
 - `@codex/cli` — `codex validate` and `codex doctor` commands;
 - `registry/*.json` — machine-readable controlled vocabularies and relation constraints;
 - `schemas/*.json` — initial JSON Schemas;
-- `examples/minimal-project.json` — valid reference fixture;
-- `examples/invalid-project.json` — invalid structural diagnostic fixture;
-- `examples/invalid-relations.json` — invalid semantic relationship fixture;
-- `tests/validator.test.mjs` — executable validator and registry synchronization tests;
+- `examples/` — valid and intentionally invalid conformance fixtures;
+- `tests/validator.test.mjs` — executable validator and registry tests;
 - GitHub Actions CI for type checking, tests, diagnostics, build, and validation.
 
 ### Run locally
@@ -40,13 +38,15 @@ Validate another JSON project:
 node apps/cli/dist/index.js validate path/to/project.json
 ```
 
-Produce a structured JSON report for CI or another tool:
+Produce a machine-readable report:
 
 ```bash
 node apps/cli/dist/index.js validate path/to/project.json --json
 ```
 
-Check the local development environment:
+The report includes stable diagnostic codes and aggregated `errors`, `warnings`, `info`, and `total` counts.
+
+Check the local development environment and registry files:
 
 ```bash
 node apps/cli/dist/index.js doctor
@@ -54,16 +54,15 @@ node apps/cli/dist/index.js doctor
 
 ## Current validation coverage
 
-The MVP currently checks:
-
-- permanent identifier format;
-- duplicate object identifiers;
-- registered object and lifecycle types;
-- registered relationship types;
+- project and object identifier syntax;
+- unique object identifiers;
+- semantic versions for CODEX and project objects;
+- registered object, relationship, and lifecycle values;
+- relationship source and target constraints;
+- forbidden self-references;
 - missing relationship targets;
-- prohibited self-references;
-- permitted source and target object types for selected relationships;
-- synchronization between TypeScript registries and machine-readable JSON registries.
+- cycles in `contains` and `dependsOn` graphs;
+- runtime loading of controlled vocabularies from JSON registry files.
 
 ## Start here
 
@@ -83,7 +82,7 @@ The MVP currently checks:
 apps/          executable applications, beginning with the CLI
 packages/      reusable core, registry, and validator packages
 core/          normative CODEX Core drafts
-registry/      machine-readable controlled vocabularies and semantic constraints
+registry/      machine-readable controlled vocabularies
 schemas/       machine-readable validation schemas
 examples/      valid and invalid reference project data
 tests/         executable conformance and regression tests
