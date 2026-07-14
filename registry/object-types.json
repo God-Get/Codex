@@ -1,0 +1,21 @@
+{
+  "$schema": "../schemas/registry-list.schema.json",
+  "registry": "codex.object-types",
+  "version": "0.1.0",
+  "values": [
+    "project",
+    "work",
+    "edition",
+    "volume",
+    "chapter",
+    "section",
+    "fragment",
+    "translation",
+    "commentary",
+    "source",
+    "term",
+    "document",
+    "requirement",
+    "validation"
+  ]
+}
