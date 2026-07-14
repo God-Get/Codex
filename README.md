@@ -9,21 +9,26 @@ CODEX is an open, reproducible framework for preparing, maintaining, publishing,
 
 ## Engineering MVP
 
-The repository now contains a minimal TypeScript implementation:
+The repository contains a minimal TypeScript implementation:
 
 - `@codex/core` — canonical project and object interfaces;
 - `@codex/registry` — controlled object, relation, and lifecycle vocabularies;
 - `@codex/validator` — identifier, registry, uniqueness, and relationship validation;
-- `@codex/cli` — the first `codex validate` command;
-- `schemas/project.schema.json` — initial JSON Schema;
-- `examples/minimal-project.json` — a valid reference project;
-- GitHub Actions CI for compilation and validation.
+- `@codex/cli` — `codex validate` and `codex doctor` commands;
+- `registry/*.json` — machine-readable controlled vocabularies;
+- `schemas/*.json` — initial JSON Schemas;
+- `examples/minimal-project.json` — valid reference fixture;
+- `examples/invalid-project.json` — invalid diagnostic fixture;
+- `tests/validator.test.mjs` — executable validator tests;
+- GitHub Actions CI for type checking, tests, diagnostics, build, and validation.
 
 ### Run locally
 
 ```bash
 npm install
-npm run build
+npm run check
+npm test
+npm run doctor
 npm run validate
 ```
 
@@ -31,6 +36,12 @@ Validate another JSON project:
 
 ```bash
 node apps/cli/dist/index.js validate path/to/project.json
+```
+
+Check the local development environment:
+
+```bash
+node apps/cli/dist/index.js doctor
 ```
 
 ## Start here
@@ -51,8 +62,10 @@ node apps/cli/dist/index.js validate path/to/project.json
 apps/          executable applications, beginning with the CLI
 packages/      reusable core, registry, and validator packages
 core/          normative CODEX Core drafts
+registry/      machine-readable controlled vocabularies
 schemas/       machine-readable validation schemas
-examples/      reference project data
+examples/      valid and invalid reference project data
+tests/         executable conformance and regression tests
 rfc/           proposals and extensions
 adr/           architectural decisions
 specs/         implementation specifications
