@@ -4,6 +4,7 @@ import test from "node:test";
 import {
   lifecycleStatuses,
   objectTypes,
+  relationConstraints,
   relationTypes
 } from "../packages/registry/dist/index.js";
 import { validateProject } from "../packages/validator/dist/index.js";
@@ -54,10 +55,12 @@ test("runtime registry matches machine-readable registry files", async () => {
   const objectRegistry = await loadFixture("registry/object-types.json");
   const relationRegistry = await loadFixture("registry/relation-types.json");
   const statusRegistry = await loadFixture("registry/lifecycle-statuses.json");
+  const constraintRegistry = await loadFixture("registry/relation-constraints.json");
 
   assert.deepEqual(objectRegistry.values, [...objectTypes]);
   assert.deepEqual(relationRegistry.values, [...relationTypes]);
   assert.deepEqual(statusRegistry.values, [...lifecycleStatuses]);
+  assert.deepEqual(constraintRegistry.constraints, relationConstraints);
 });
 
 test("every diagnostic provides a stable error code", async () => {
