@@ -1,0 +1,27 @@
+{
+  "codexVersion": "0.1.0",
+  "id": "PROJ-0001",
+  "title": "Minimal CODEX Project",
+  "profile": "core",
+  "objects": [
+    {
+      "id": "WORK-0001",
+      "type": "work",
+      "title": "Example Work",
+      "version": "0.1.0",
+      "status": "draft",
+      "language": "la"
+    },
+    {
+      "id": "TR-0001",
+      "type": "translation",
+      "title": "Example Translation",
+      "version": "0.1.0",
+      "status": "draft",
+      "language": "ru",
+      "relations": [
+        {"type": "translates", "target": "WORK-0001"}
+      ]
+    }
+  ]
+}
