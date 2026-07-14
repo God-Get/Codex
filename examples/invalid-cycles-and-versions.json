@@ -1,0 +1,38 @@
+{
+  "codexVersion": "version-one",
+  "id": "PROJ-0004",
+  "title": "Invalid Cycles and Versions",
+  "objects": [
+    {
+      "id": "WORK-0004",
+      "type": "work",
+      "title": "Cyclic Work",
+      "version": "draft",
+      "status": "draft",
+      "relations": [
+        {"type": "contains", "target": "ED-0004"},
+        {"type": "dependsOn", "target": "DOC-0004"}
+      ]
+    },
+    {
+      "id": "ED-0004",
+      "type": "edition",
+      "title": "Cyclic Edition",
+      "version": "0.1.0",
+      "status": "draft",
+      "relations": [
+        {"type": "contains", "target": "WORK-0004"}
+      ]
+    },
+    {
+      "id": "DOC-0004",
+      "type": "document",
+      "title": "Cyclic Document",
+      "version": "0.1.0",
+      "status": "draft",
+      "relations": [
+        {"type": "dependsOn", "target": "WORK-0004"}
+      ]
+    }
+  ]
+}
