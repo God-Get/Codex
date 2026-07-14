@@ -11,15 +11,15 @@ CODEX is an open, reproducible framework for preparing, maintaining, publishing,
 
 The repository contains a minimal TypeScript implementation:
 
-- `@codex/core` — canonical project, object, diagnostic, and validation-report interfaces;
+- `@codex/core` — canonical project, object, inspection, diagnostic, and validation interfaces;
 - `@codex/registry` — controlled vocabularies loaded from `registry/*.json`;
-- `@codex/validator` — identifier, SemVer, registry, uniqueness, relationship, and graph-cycle validation;
-- `@codex/cli` — `codex validate` and `codex doctor` commands;
+- `@codex/validator` — structural, provenance, relationship, cycle, and reachability validation;
+- `@codex/cli` — `codex validate`, `codex inspect`, and `codex doctor` commands;
 - `registry/*.json` — machine-readable controlled vocabularies and relation constraints;
 - `schemas/*.json` — initial JSON Schemas;
 - `examples/` — valid and intentionally invalid conformance fixtures;
-- `tests/validator.test.mjs` — executable validator and registry tests;
-- GitHub Actions CI for type checking, tests, diagnostics, build, and validation.
+- `tests/validator.test.mjs` — executable validator, registry, profile, and inspection tests;
+- GitHub Actions CI for type checking, tests, diagnostics, inspection, and validation.
 
 ### Run locally
 
@@ -29,28 +29,33 @@ npm run check
 npm test
 npm run doctor
 npm run validate
+npm run validate:strict
 npm run validate:json
+npm run inspect
+npm run inspect:json
 ```
 
 Validate another JSON project:
 
 ```bash
 node apps/cli/dist/index.js validate path/to/project.json
-```
-
-Produce a machine-readable report:
-
-```bash
+node apps/cli/dist/index.js validate path/to/project.json --profile=strict
 node apps/cli/dist/index.js validate path/to/project.json --json
 ```
 
-The report includes stable diagnostic codes and aggregated `errors`, `warnings`, `info`, and `total` counts.
-
-Check the local development environment and registry files:
+Inspect project structure:
 
 ```bash
-node apps/cli/dist/index.js doctor
+node apps/cli/dist/index.js inspect path/to/project.json
+node apps/cli/dist/index.js inspect path/to/project.json --json
 ```
+
+The inspection report includes object and relation counts, provenance-link counts, containment roots, unreachable objects, object-type distribution, lifecycle-status distribution, and languages.
+
+## Validation profiles
+
+- `core` — required structural and semantic checks;
+- `strict` — core checks plus reachability warnings for objects outside every containment root.
 
 ## Current validation coverage
 
@@ -62,6 +67,8 @@ node apps/cli/dist/index.js doctor
 - forbidden self-references;
 - missing relationship targets;
 - cycles in `contains` and `dependsOn` graphs;
+- `derivedFrom` identifier syntax, existence, and self-reference;
+- strict-profile containment reachability;
 - runtime loading of controlled vocabularies from JSON registry files.
 
 ## Start here
