@@ -1,0 +1,33 @@
+{
+  "codexVersion": "0.1.0",
+  "id": "PROJ-0005",
+  "title": "Invalid Provenance and Reachability",
+  "profile": "core",
+  "objects": [
+    {
+      "id": "WORK-0005",
+      "type": "work",
+      "title": "Root Work",
+      "version": "0.1.0",
+      "status": "draft",
+      "relations": [
+        {"type": "contains", "target": "CH-0005"}
+      ]
+    },
+    {
+      "id": "CH-0005",
+      "type": "chapter",
+      "title": "Contained Chapter",
+      "version": "0.1.0",
+      "status": "draft"
+    },
+    {
+      "id": "TR-0005",
+      "type": "translation",
+      "title": "Detached Translation",
+      "version": "0.1.0",
+      "status": "draft",
+      "derivedFrom": ["BAD", "SRC-9999", "TR-0005"]
+    }
+  ]
+}
