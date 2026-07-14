@@ -1,0 +1,6 @@
+{
+  "$schema": "../schemas/registry-list.schema.json",
+  "registry": "codex.validation-profiles",
+  "version": "0.1.0",
+  "values": ["core", "strict"]
+}
