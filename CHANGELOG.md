@@ -10,9 +10,13 @@ All notable changes to CODEX are documented here.
 - machine-readable JSON registries and JSON Schemas;
 - `codex validate` with human-readable and JSON reports;
 - `codex doctor` environment and registry checks;
+- `codex inspect` with human-readable and JSON structural reports;
+- `core` and `strict` validation profiles registered in `registry/validation-profiles.json`;
 - semantic relationship constraints;
 - semantic-version validation;
 - cycle detection for `contains` and `dependsOn`;
+- `derivedFrom` provenance validation;
+- strict-profile containment reachability warnings;
 - diagnostic summaries and executable regression tests;
 - GitHub Actions continuous integration.
 
