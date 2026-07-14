@@ -1,0 +1,19 @@
+{
+  "$schema": "../schemas/registry-list.schema.json",
+  "registry": "codex.relation-types",
+  "version": "0.1.0",
+  "values": [
+    "contains",
+    "belongsTo",
+    "references",
+    "quotes",
+    "translates",
+    "defines",
+    "explains",
+    "extends",
+    "derivedFrom",
+    "dependsOn",
+    "supersedes",
+    "relatedTo"
+  ]
+}
