@@ -5,7 +5,8 @@ import {
   lifecycleStatuses,
   loadRegistry,
   objectTypes,
-  relationTypes
+  relationTypes,
+  validationProfiles
 } from "../packages/registry/dist/index.js";
 import { inspectProject, validateProject } from "../packages/validator/dist/index.js";
 
@@ -59,7 +60,6 @@ test("provenance references and strict reachability are validated", async () => 
   const strictReport = validateProject(project, { registry: loadRegistry(), profile: "strict" });
   const coreCodes = new Set(coreReport.diagnostics.map((diagnostic) => diagnostic.code));
   const strictCodes = new Set(strictReport.diagnostics.map((diagnostic) => diagnostic.code));
-
   assert.equal(coreCodes.has("ERR-1301"), true);
   assert.equal(coreCodes.has("ERR-1302"), true);
   assert.equal(coreCodes.has("ERR-1303"), true);
@@ -83,13 +83,16 @@ test("runtime registry matches machine-readable registry files", async () => {
   const objectRegistry = await loadFixture("registry/object-types.json");
   const relationRegistry = await loadFixture("registry/relation-types.json");
   const statusRegistry = await loadFixture("registry/lifecycle-statuses.json");
+  const profileRegistry = await loadFixture("registry/validation-profiles.json");
   const loaded = loadRegistry();
   assert.deepEqual(objectRegistry.values, [...objectTypes]);
   assert.deepEqual(relationRegistry.values, [...relationTypes]);
   assert.deepEqual(statusRegistry.values, [...lifecycleStatuses]);
+  assert.deepEqual(profileRegistry.values, [...validationProfiles]);
   assert.deepEqual(loaded.objectTypes, objectRegistry.values);
   assert.deepEqual(loaded.relationTypes, relationRegistry.values);
   assert.deepEqual(loaded.lifecycleStatuses, statusRegistry.values);
+  assert.deepEqual(loaded.validationProfiles, profileRegistry.values);
 });
 
 test("every diagnostic provides a stable error code", async () => {
