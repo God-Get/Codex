@@ -1,0 +1,10 @@
+{
+  "name": "@codex/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {"codex": "dist/index.js"},
+  "dependencies": {
+    "@codex/core": "0.1.0",
+    "@codex/validator": "0.1.0"
+  }
+}
