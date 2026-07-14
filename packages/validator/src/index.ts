@@ -1,5 +1,6 @@
-import type { CodexProject, Diagnostic, ValidationReport } from "@codex/core";
+import type { CodexObject, CodexProject, Diagnostic, ValidationReport } from "@codex/core";
 import {
+  getRelationConstraint,
   identifierPattern,
   isRegisteredLifecycleStatus,
   isRegisteredObjectType,
@@ -10,9 +11,51 @@ function push(diagnostics: Diagnostic[], diagnostic: Diagnostic): void {
   diagnostics.push(diagnostic);
 }
 
+function validateRelationSemantics(
+  source: CodexObject,
+  target: CodexObject,
+  relationType: string,
+  path: string,
+  diagnostics: Diagnostic[]
+): void {
+  const constraint = getRelationConstraint(relationType);
+  if (!constraint) return;
+
+  if (constraint.disallowSelfReference && source.id === target.id) {
+    push(diagnostics, {
+      code: "ERR-1203",
+      severity: "error",
+      message: `Relation ${relationType} must not reference the same object.`,
+      objectId: source.id,
+      path
+    });
+  }
+
+  if (constraint.sourceTypes && !constraint.sourceTypes.includes(source.type)) {
+    push(diagnostics, {
+      code: "ERR-1204",
+      severity: "error",
+      message: `Object type ${source.type} cannot use relation ${relationType}.`,
+      objectId: source.id,
+      path
+    });
+  }
+
+  if (constraint.targetTypes && !constraint.targetTypes.includes(target.type)) {
+    push(diagnostics, {
+      code: "ERR-1205",
+      severity: "error",
+      message: `Relation ${relationType} cannot target object type ${target.type}.`,
+      objectId: source.id,
+      path
+    });
+  }
+}
+
 export function validateProject(project: CodexProject): ValidationReport {
   const diagnostics: Diagnostic[] = [];
   const ids = new Set<string>();
+  const objectById = new Map<string, CodexObject>();
 
   if (!project.codexVersion?.trim()) {
     push(diagnostics, {
@@ -66,6 +109,7 @@ export function validateProject(project: CodexProject): ValidationReport {
       });
     }
     ids.add(object.id);
+    objectById.set(object.id, object);
 
     if (!isRegisteredObjectType(object.type)) {
       push(diagnostics, {
@@ -112,14 +156,21 @@ export function validateProject(project: CodexProject): ValidationReport {
 
   for (const [index, object] of project.objects.entries()) {
     for (const [relationIndex, relation] of (object.relations ?? []).entries()) {
-      if (!ids.has(relation.target)) {
+      const path = `objects[${index}].relations[${relationIndex}]`;
+      const target = objectById.get(relation.target);
+      if (!target) {
         push(diagnostics, {
           code: "ERR-1202",
           severity: "error",
           message: `Relation target does not exist: ${relation.target}`,
           objectId: object.id,
-          path: `objects[${index}].relations[${relationIndex}].target`
+          path: `${path}.target`
         });
+        continue;
+      }
+
+      if (isRegisteredRelationType(relation.type)) {
+        validateRelationSemantics(object, target, relation.type, path, diagnostics);
       }
     }
   }
