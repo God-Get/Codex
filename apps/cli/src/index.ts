@@ -63,7 +63,7 @@ async function doctorCommand(): Promise<void> {
   const requiredFiles = [
     "package.json",
     "tsconfig.json",
-    "schemas/codex-project.schema.json",
+    "schemas/project.schema.json",
     "schemas/registry-list.schema.json",
     "schemas/relation-constraints.schema.json",
     "examples/minimal-project.json",
