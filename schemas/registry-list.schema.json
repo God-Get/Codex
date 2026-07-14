@@ -1,0 +1,19 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex.example/schemas/registry-list.schema.json",
+  "title": "CODEX Registry List",
+  "type": "object",
+  "required": ["registry", "version", "values"],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "registry": { "type": "string", "pattern": "^codex\\.[a-z0-9-]+$" },
+    "version": { "type": "string", "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$" },
+    "values": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": { "type": "string", "minLength": 1 }
+    }
+  }
+}
