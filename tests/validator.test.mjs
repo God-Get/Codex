@@ -3,8 +3,8 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
   lifecycleStatuses,
+  loadRegistry,
   objectTypes,
-  relationConstraints,
   relationTypes
 } from "../packages/registry/dist/index.js";
 import { validateProject } from "../packages/validator/dist/index.js";
@@ -13,17 +13,18 @@ async function loadFixture(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
-test("minimal project passes validation", async () => {
+test("minimal project passes validation using JSON registry", async () => {
   const project = await loadFixture("examples/minimal-project.json");
-  const report = validateProject(project);
+  const report = validateProject(project, { registry: loadRegistry() });
 
   assert.equal(report.valid, true);
   assert.deepEqual(report.diagnostics, []);
+  assert.deepEqual(report.summary, { errors: 0, warnings: 0, info: 0, total: 0 });
 });
 
 test("invalid project produces expected diagnostics", async () => {
   const project = await loadFixture("examples/invalid-project.json");
-  const report = validateProject(project);
+  const report = validateProject(project, { registry: loadRegistry() });
   const codes = new Set(report.diagnostics.map((diagnostic) => diagnostic.code));
 
   assert.equal(report.valid, false);
@@ -38,11 +39,13 @@ test("invalid project produces expected diagnostics", async () => {
   ]) {
     assert.equal(codes.has(expected), true, `missing diagnostic ${expected}`);
   }
+  assert.equal(report.summary.errors, report.diagnostics.length);
+  assert.equal(report.summary.total, report.diagnostics.length);
 });
 
 test("semantic relation violations are detected", async () => {
   const project = await loadFixture("examples/invalid-relations.json");
-  const report = validateProject(project);
+  const report = validateProject(project, { registry: loadRegistry() });
   const codes = new Set(report.diagnostics.map((diagnostic) => diagnostic.code));
 
   assert.equal(report.valid, false);
@@ -51,22 +54,39 @@ test("semantic relation violations are detected", async () => {
   assert.equal(codes.has("ERR-1205"), true);
 });
 
+test("semantic versions and graph cycles are validated", async () => {
+  const project = await loadFixture("examples/invalid-cycles-and-versions.json");
+  const report = validateProject(project, { registry: loadRegistry() });
+  const codes = report.diagnostics.map((diagnostic) => diagnostic.code);
+
+  assert.equal(report.valid, false);
+  assert.equal(codes.includes("ERR-1004"), true);
+  assert.equal(codes.includes("ERR-1106"), true);
+  assert.equal(codes.filter((code) => code === "ERR-1206").length >= 2, true);
+});
+
 test("runtime registry matches machine-readable registry files", async () => {
   const objectRegistry = await loadFixture("registry/object-types.json");
   const relationRegistry = await loadFixture("registry/relation-types.json");
   const statusRegistry = await loadFixture("registry/lifecycle-statuses.json");
-  const constraintRegistry = await loadFixture("registry/relation-constraints.json");
+  const loaded = loadRegistry();
 
   assert.deepEqual(objectRegistry.values, [...objectTypes]);
   assert.deepEqual(relationRegistry.values, [...relationTypes]);
   assert.deepEqual(statusRegistry.values, [...lifecycleStatuses]);
-  assert.deepEqual(constraintRegistry.constraints, relationConstraints);
+  assert.deepEqual(loaded.objectTypes, objectRegistry.values);
+  assert.deepEqual(loaded.relationTypes, relationRegistry.values);
+  assert.deepEqual(loaded.lifecycleStatuses, statusRegistry.values);
 });
 
 test("every diagnostic provides a stable error code", async () => {
-  for (const fixture of ["examples/invalid-project.json", "examples/invalid-relations.json"]) {
+  for (const fixture of [
+    "examples/invalid-project.json",
+    "examples/invalid-relations.json",
+    "examples/invalid-cycles-and-versions.json"
+  ]) {
     const project = await loadFixture(fixture);
-    const report = validateProject(project);
+    const report = validateProject(project, { registry: loadRegistry() });
 
     for (const diagnostic of report.diagnostics) {
       assert.match(diagnostic.code, /^(ERR|WARN|INFO)-[0-9]{4}$/);
