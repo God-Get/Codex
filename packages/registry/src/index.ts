@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
+
 export const lifecycleStatuses = [
   "draft",
   "review",
@@ -39,55 +42,63 @@ export const relationTypes = [
   "relatedTo"
 ] as const;
 
-export const identifierPattern = /^[A-Z][A-Z0-9]{1,15}-[0-9]{4,}$/;
+export const relationConstraints = {
+  contains: {
+    sources: ["project", "work", "edition", "volume", "chapter", "section", "document"],
+    targets: ["work", "edition", "volume", "chapter", "section", "fragment", "translation", "commentary", "source", "term", "document", "requirement", "validation"]
+  },
+  translates: { sources: ["translation"], targets: ["work", "edition", "volume", "chapter", "section", "fragment", "source"] },
+  defines: { sources: ["term", "document"], targets: ["term"] },
+  explains: { sources: ["commentary", "document"], targets: ["work", "edition", "volume", "chapter", "section", "fragment", "term"] }
+} as const;
 
-export interface RelationConstraint {
-  sourceTypes?: readonly string[];
-  targetTypes?: readonly string[];
-  disallowSelfReference?: boolean;
+export interface RegistryData {
+  objectTypes: readonly string[];
+  relationTypes: readonly string[];
+  lifecycleStatuses: readonly string[];
+  relationConstraints: Readonly<Record<string, { sources: readonly string[]; targets: readonly string[] }>>;
 }
 
-export const relationConstraints: Readonly<Record<string, RelationConstraint>> = {
-  contains: {
-    sourceTypes: ["project", "work", "edition", "volume", "chapter", "section"],
-    targetTypes: ["work", "edition", "volume", "chapter", "section", "fragment", "translation", "commentary", "source", "term"],
-    disallowSelfReference: true
-  },
-  belongsTo: {
-    targetTypes: ["project", "work", "edition", "volume", "chapter", "section"],
-    disallowSelfReference: true
-  },
-  translates: {
-    sourceTypes: ["translation"],
-    targetTypes: ["work", "edition", "chapter", "section", "fragment", "source"],
-    disallowSelfReference: true
-  },
-  defines: {
-    sourceTypes: ["term", "commentary", "document"],
-    targetTypes: ["term"],
-    disallowSelfReference: true
-  },
-  explains: {
-    sourceTypes: ["commentary", "document"],
-    disallowSelfReference: true
-  },
-  derivedFrom: { disallowSelfReference: true },
-  dependsOn: { disallowSelfReference: true },
-  supersedes: { disallowSelfReference: true }
+interface RegistryListFile {
+  values: string[];
+}
+
+interface RelationConstraintFile {
+  constraints: Record<string, { sources: string[]; targets: string[] }>;
+}
+
+function readJson<T>(path: string): T {
+  return JSON.parse(readFileSync(path, "utf8")) as T;
+}
+
+export function loadRegistry(rootDirectory = process.cwd()): RegistryData {
+  const registryDirectory = resolve(rootDirectory, "registry");
+  return {
+    objectTypes: readJson<RegistryListFile>(resolve(registryDirectory, "object-types.json")).values,
+    relationTypes: readJson<RegistryListFile>(resolve(registryDirectory, "relation-types.json")).values,
+    lifecycleStatuses: readJson<RegistryListFile>(resolve(registryDirectory, "lifecycle-statuses.json")).values,
+    relationConstraints: readJson<RelationConstraintFile>(resolve(registryDirectory, "relation-constraints.json")).constraints
+  };
+}
+
+export const defaultRegistry: RegistryData = {
+  objectTypes,
+  relationTypes,
+  lifecycleStatuses,
+  relationConstraints
 };
 
-export function isRegisteredObjectType(value: string): boolean {
-  return (objectTypes as readonly string[]).includes(value);
+export const identifierPattern = /^[A-Z][A-Z0-9]{1,15}-[0-9]{4,}$/;
+export const semanticVersionPattern = /^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/;
+
+export function isRegisteredObjectType(value: string, registry: RegistryData = defaultRegistry): boolean {
+  return registry.objectTypes.includes(value);
 }
 
-export function isRegisteredRelationType(value: string): boolean {
-  return (relationTypes as readonly string[]).includes(value);
+export function isRegisteredRelationType(value: string, registry: RegistryData = defaultRegistry): boolean {
+  return registry.relationTypes.includes(value);
 }
 
-export function isRegisteredLifecycleStatus(value: string): boolean {
-  return (lifecycleStatuses as readonly string[]).includes(value);
-}
-
-export function getRelationConstraint(type: string): RelationConstraint | undefined {
-  return relationConstraints[type];
+export function isRegisteredLifecycleStatus(value: string, registry: RegistryData = defaultRegistry): boolean {
+  return registry.lifecycleStatuses.includes(value);
 }
