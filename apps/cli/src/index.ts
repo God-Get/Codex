@@ -3,7 +3,7 @@
 import { access, readFile } from "node:fs/promises";
 import process from "node:process";
 import type { CodexProject, ValidationProfile, ValidationReport } from "@codex/core";
-import { loadRegistry } from "@codex/registry";
+import { isRegisteredValidationProfile, loadRegistry } from "@codex/registry";
 import { inspectProject, validateProject } from "@codex/validator";
 
 function printHumanReport(report: ValidationReport): void {
@@ -40,12 +40,13 @@ async function validateCommand(filePath: string, args: string[]): Promise<void> 
 
   const jsonOutput = args.includes("--json");
   const profileArgument = args.find((arg) => arg.startsWith("--profile="));
-  const profile = (profileArgument?.split("=")[1] ?? "core") as ValidationProfile;
-  if (profile !== "core" && profile !== "strict") {
-    console.error(`Unknown validation profile: ${profile}`);
+  const profileValue = profileArgument?.split("=")[1] ?? "core";
+  if (!isRegisteredValidationProfile(profileValue, registry)) {
+    console.error(`Unknown validation profile: ${profileValue}. Registered profiles: ${registry.validationProfiles.join(", ")}`);
     process.exitCode = 2;
     return;
   }
+  const profile = profileValue as ValidationProfile;
 
   const report = validateProject(project, { registry, profile });
   if (jsonOutput) console.log(JSON.stringify({ profile, ...report }, null, 2));
@@ -94,6 +95,7 @@ async function doctorCommand(): Promise<void> {
     "registry/object-types.json",
     "registry/relation-types.json",
     "registry/lifecycle-statuses.json",
+    "registry/validation-profiles.json",
     "registry/relation-constraints.json"
   ];
 
@@ -110,8 +112,8 @@ async function doctorCommand(): Promise<void> {
     const registry = loadRegistry();
     checks.push({
       name: "Registry",
-      ok: registry.objectTypes.length > 0 && registry.relationTypes.length > 0 && registry.lifecycleStatuses.length > 0,
-      detail: `${registry.objectTypes.length} object types, ${registry.relationTypes.length} relation types, ${registry.lifecycleStatuses.length} statuses`
+      ok: registry.objectTypes.length > 0 && registry.relationTypes.length > 0 && registry.lifecycleStatuses.length > 0 && registry.validationProfiles.length > 0,
+      detail: `${registry.objectTypes.length} object types, ${registry.relationTypes.length} relation types, ${registry.lifecycleStatuses.length} statuses, ${registry.validationProfiles.length} validation profiles`
     });
   } catch (error) {
     checks.push({ name: "Registry", ok: false, detail: error instanceof Error ? error.message : String(error) });
