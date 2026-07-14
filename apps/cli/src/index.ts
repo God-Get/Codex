@@ -3,7 +3,7 @@
 import { access, readFile } from "node:fs/promises";
 import process from "node:process";
 import type { CodexProject, ValidationReport } from "@codex/core";
-import { lifecycleStatuses, objectTypes, relationTypes } from "@codex/registry";
+import { loadRegistry } from "@codex/registry";
 import { validateProject } from "@codex/validator";
 
 function printHumanReport(report: ValidationReport): void {
@@ -11,12 +11,9 @@ function printHumanReport(report: ValidationReport): void {
     const location = diagnostic.path ? ` (${diagnostic.path})` : "";
     console.log(`${diagnostic.severity.toUpperCase()} ${diagnostic.code}: ${diagnostic.message}${location}`);
   }
-
-  if (report.valid) {
-    console.log("PASS: project conforms to the current CODEX MVP checks.");
-  } else {
-    console.error("FAIL: project does not conform to the current CODEX MVP checks.");
-  }
+  console.log(
+    `SUMMARY: ${report.summary.errors} error(s), ${report.summary.warnings} warning(s), ${report.summary.info} info message(s).`
+  );
 }
 
 async function validateCommand(filePath: string, jsonOutput: boolean): Promise<void> {
@@ -25,21 +22,30 @@ async function validateCommand(filePath: string, jsonOutput: boolean): Promise<v
     const raw = await readFile(filePath, "utf8");
     project = JSON.parse(raw) as CodexProject;
   } catch (error) {
-    const message = `Failed to read project: ${error instanceof Error ? error.message : String(error)}`;
-    if (jsonOutput) {
-      console.log(JSON.stringify({ valid: false, diagnostics: [{ code: "ERR-0001", severity: "error", message }] }, null, 2));
-    } else {
-      console.error(message);
-    }
+    console.error(`Failed to read project: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 2;
     return;
   }
 
-  const report = validateProject(project);
+  let registry;
+  try {
+    registry = loadRegistry();
+  } catch (error) {
+    console.error(`Failed to load registry: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 2;
+    return;
+  }
+
+  const report = validateProject(project, { registry });
   if (jsonOutput) {
     console.log(JSON.stringify(report, null, 2));
   } else {
     printHumanReport(report);
+    console.log(
+      report.valid
+        ? "PASS: project conforms to the current CODEX MVP checks."
+        : "FAIL: project does not conform to the current CODEX MVP checks."
+    );
   }
 
   if (!report.valid) process.exitCode = 1;
@@ -58,10 +64,13 @@ async function doctorCommand(): Promise<void> {
     "package.json",
     "tsconfig.json",
     "schemas/codex-project.schema.json",
+    "schemas/registry-list.schema.json",
+    "schemas/relation-constraints.schema.json",
+    "examples/minimal-project.json",
     "registry/object-types.json",
     "registry/relation-types.json",
     "registry/lifecycle-statuses.json",
-    "examples/minimal-project.json"
+    "registry/relation-constraints.json"
   ];
 
   for (const file of requiredFiles) {
@@ -73,11 +82,23 @@ async function doctorCommand(): Promise<void> {
     }
   }
 
-  checks.push({
-    name: "Registry",
-    ok: objectTypes.length > 0 && relationTypes.length > 0 && lifecycleStatuses.length > 0,
-    detail: `${objectTypes.length} object types, ${relationTypes.length} relation types, ${lifecycleStatuses.length} statuses`
-  });
+  try {
+    const registry = loadRegistry();
+    checks.push({
+      name: "Registry",
+      ok:
+        registry.objectTypes.length > 0 &&
+        registry.relationTypes.length > 0 &&
+        registry.lifecycleStatuses.length > 0,
+      detail: `${registry.objectTypes.length} object types, ${registry.relationTypes.length} relation types, ${registry.lifecycleStatuses.length} statuses`
+    });
+  } catch (error) {
+    checks.push({
+      name: "Registry",
+      ok: false,
+      detail: error instanceof Error ? error.message : String(error)
+    });
+  }
 
   for (const check of checks) {
     console.log(`${check.ok ? "PASS" : "FAIL"}: ${check.name} — ${check.detail}`);
@@ -92,17 +113,10 @@ async function doctorCommand(): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const args = process.argv.slice(2);
-  const command = args[0];
+  const [, , command, argument, option] = process.argv;
 
-  if (command === "validate") {
-    const filePath = args.find((arg) => !arg.startsWith("--") && arg !== "validate");
-    if (!filePath) {
-      console.error("Usage: codex validate <project.json> [--json]");
-      process.exitCode = 2;
-      return;
-    }
-    await validateCommand(filePath, args.includes("--json"));
+  if (command === "validate" && argument) {
+    await validateCommand(argument, option === "--json");
     return;
   }
 
