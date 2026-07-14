@@ -1,0 +1,25 @@
+{
+  "codexVersion": "0.1.0",
+  "id": "PROJECT-0002",
+  "title": "Invalid Semantic Relations",
+  "objects": [
+    {
+      "id": "WORK-0001",
+      "type": "work",
+      "title": "Source Work",
+      "version": "0.1.0",
+      "status": "draft",
+      "relations": [
+        { "type": "translates", "target": "WORK-0001" },
+        { "type": "defines", "target": "CHAPTER-0001" }
+      ]
+    },
+    {
+      "id": "CHAPTER-0001",
+      "type": "chapter",
+      "title": "Chapter",
+      "version": "0.1.0",
+      "status": "draft"
+    }
+  ]
+}
