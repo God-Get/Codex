@@ -6,6 +6,8 @@ export type LifecycleStatus =
   | "deprecated"
   | "archived";
 
+export type ValidationProfile = "core" | "strict";
+
 export interface CodexRelation {
   type: string;
   target: string;
@@ -52,4 +54,18 @@ export interface ValidationReport {
   valid: boolean;
   diagnostics: Diagnostic[];
   summary: ValidationSummary;
+}
+
+export interface ProjectInspection {
+  projectId: string;
+  title: string;
+  codexVersion: string;
+  objectCount: number;
+  relationCount: number;
+  derivedFromCount: number;
+  rootObjectIds: string[];
+  unreachableObjectIds: string[];
+  objectTypes: Record<string, number>;
+  lifecycleStatuses: Record<string, number>;
+  languages: Record<string, number>;
 }
