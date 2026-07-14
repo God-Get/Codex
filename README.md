@@ -4,8 +4,34 @@
 
 CODEX is an open, reproducible framework for preparing, maintaining, publishing, and preserving scholarly editions of classical, philosophical, religious, historical, and literary texts.
 
-**Current release:** `0.0.1 Genesis`  
-**Status:** pre-standard foundation
+**Current release:** `0.1.0 Engineering MVP`  
+**Status:** active development
+
+## Engineering MVP
+
+The repository now contains a minimal TypeScript implementation:
+
+- `@codex/core` — canonical project and object interfaces;
+- `@codex/registry` — controlled object, relation, and lifecycle vocabularies;
+- `@codex/validator` — identifier, registry, uniqueness, and relationship validation;
+- `@codex/cli` — the first `codex validate` command;
+- `schemas/project.schema.json` — initial JSON Schema;
+- `examples/minimal-project.json` — a valid reference project;
+- GitHub Actions CI for compilation and validation.
+
+### Run locally
+
+```bash
+npm install
+npm run build
+npm run validate
+```
+
+Validate another JSON project:
+
+```bash
+node apps/cli/dist/index.js validate path/to/project.json
+```
 
 ## Start here
 
@@ -22,16 +48,18 @@ CODEX is an open, reproducible framework for preparing, maintaining, publishing,
 ## Repository structure
 
 ```text
+apps/          executable applications, beginning with the CLI
+packages/      reusable core, registry, and validator packages
 core/          normative CODEX Core drafts
+schemas/       machine-readable validation schemas
+examples/      reference project data
 rfc/           proposals and extensions
-adr/           accepted architectural decisions
-specs/         detailed specifications
-profiles/      domain-specific CODEX profiles
+adr/           architectural decisions
+specs/         implementation specifications
+profiles/      domain-specific profiles
 guides/        implementation guidance
-schemas/       machine-readable validation
 templates/     reusable project artifacts
-examples/      reference editions
-tools/         build and validation utilities
+tools/         future build and publication utilities
 releases/      release manifests and notes
 ```
 
