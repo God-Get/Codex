@@ -1,0 +1,33 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex.example/schemas/relation-constraints.schema.json",
+  "title": "CODEX Relation Constraints Registry",
+  "type": "object",
+  "required": ["registry", "version", "constraints"],
+  "properties": {
+    "$schema": { "type": "string" },
+    "registry": { "const": "codex.relation-constraints" },
+    "version": { "type": "string", "minLength": 1 },
+    "constraints": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "sourceTypes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "targetTypes": {
+            "type": "array",
+            "items": { "type": "string", "minLength": 1 },
+            "uniqueItems": true
+          },
+          "disallowSelfReference": { "type": "boolean" }
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
