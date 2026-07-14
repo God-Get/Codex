@@ -1,0 +1,13 @@
+{
+  "$schema": "../schemas/registry-list.schema.json",
+  "registry": "codex.lifecycle-statuses",
+  "version": "0.1.0",
+  "values": [
+    "draft",
+    "review",
+    "approved",
+    "published",
+    "deprecated",
+    "archived"
+  ]
+}
