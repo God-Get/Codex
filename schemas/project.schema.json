@@ -5,8 +5,8 @@
   "type": "object",
   "required": ["codexVersion", "id", "title", "objects"],
   "properties": {
-    "codexVersion": {"type": "string", "minLength": 1},
-    "id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]{1,15}-[0-9]{4,}$"},
+    "codexVersion": {"$ref": "#/$defs/semanticVersion"},
+    "id": {"$ref": "#/$defs/identifier"},
     "title": {"type": "string", "minLength": 1},
     "profile": {"type": "string"},
     "objects": {
@@ -16,12 +16,20 @@
   },
   "additionalProperties": false,
   "$defs": {
+    "identifier": {
+      "type": "string",
+      "pattern": "^[A-Z][A-Z0-9]{1,15}-[0-9]{4,}$"
+    },
+    "semanticVersion": {
+      "type": "string",
+      "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\\+[0-9A-Za-z.-]+)?$"
+    },
     "relation": {
       "type": "object",
       "required": ["type", "target"],
       "properties": {
         "type": {"type": "string"},
-        "target": {"type": "string"}
+        "target": {"$ref": "#/$defs/identifier"}
       },
       "additionalProperties": false
     },
@@ -29,13 +37,13 @@
       "type": "object",
       "required": ["id", "type", "title", "version", "status"],
       "properties": {
-        "id": {"type": "string", "pattern": "^[A-Z][A-Z0-9]{1,15}-[0-9]{4,}$"},
+        "id": {"$ref": "#/$defs/identifier"},
         "type": {"type": "string"},
         "title": {"type": "string", "minLength": 1},
-        "version": {"type": "string", "minLength": 1},
+        "version": {"$ref": "#/$defs/semanticVersion"},
         "status": {"enum": ["draft", "review", "approved", "published", "deprecated", "archived"]},
         "language": {"type": "string"},
-        "derivedFrom": {"type": "array", "items": {"type": "string"}},
+        "derivedFrom": {"type": "array", "items": {"$ref": "#/$defs/identifier"}},
         "relations": {"type": "array", "items": {"$ref": "#/$defs/relation"}},
         "metadata": {"type": "object"}
       },
