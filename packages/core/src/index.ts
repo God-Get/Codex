@@ -41,7 +41,15 @@ export interface Diagnostic {
   path?: string;
 }
 
+export interface ValidationSummary {
+  errors: number;
+  warnings: number;
+  info: number;
+  total: number;
+}
+
 export interface ValidationReport {
   valid: boolean;
   diagnostics: Diagnostic[];
+  summary: ValidationSummary;
 }
