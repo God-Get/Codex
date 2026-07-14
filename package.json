@@ -8,6 +8,7 @@
     "build": "tsc -b",
     "check": "tsc -b --pretty false",
     "validate": "node apps/cli/dist/index.js validate examples/minimal-project.json",
+    "validate:json": "node apps/cli/dist/index.js validate examples/minimal-project.json --json",
     "doctor": "node apps/cli/dist/index.js doctor",
     "test": "npm run build && node --test tests/**/*.test.mjs"
   },
