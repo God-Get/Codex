@@ -1,0 +1,22 @@
+{
+  "codexVersion": "",
+  "id": "bad-id",
+  "title": "Invalid fixture",
+  "objects": [
+    {
+      "id": "WORK-0001",
+      "type": "unknown-type",
+      "status": "draft",
+      "title": "First object",
+      "relations": [
+        { "type": "references", "target": "SRC-9999" }
+      ]
+    },
+    {
+      "id": "WORK-0001",
+      "type": "work",
+      "status": "invalid-status",
+      "title": ""
+    }
+  ]
+}
