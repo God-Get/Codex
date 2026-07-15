@@ -3,6 +3,7 @@
   "references": [
     {"path": "packages/core"},
     {"path": "packages/registry"},
+    {"path": "packages/schema"},
     {"path": "packages/validator"},
     {"path": "apps/cli"}
   ]
