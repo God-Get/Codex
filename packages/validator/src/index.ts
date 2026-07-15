@@ -10,6 +10,7 @@ import type {
 import {
   defaultRegistry,
   identifierPattern,
+  isRegisteredLanguage,
   isRegisteredLifecycleStatus,
   isRegisteredObjectType,
   isRegisteredRelationType,
@@ -20,6 +21,26 @@ import {
 export interface ValidationOptions {
   registry?: RegistryData;
   profile?: ValidationProfile;
+}
+
+export interface ProjectGraphNode {
+  id: string;
+  type: string;
+  title: string;
+  status: string;
+  language?: string;
+}
+
+export interface ProjectGraphEdge {
+  source: string;
+  target: string;
+  type: string;
+}
+
+export interface ProjectGraph {
+  projectId: string;
+  nodes: ProjectGraphNode[];
+  edges: ProjectGraphEdge[];
 }
 
 function push(diagnostics: Diagnostic[], diagnostic: Diagnostic): void {
@@ -85,12 +106,35 @@ export function inspectProject(project: CodexProject): ProjectInspection {
   };
 }
 
+export function buildProjectGraph(project: CodexProject): ProjectGraph {
+  const nodes = project.objects.map((object) => ({
+    id: object.id,
+    type: object.type,
+    title: object.title,
+    status: object.status,
+    ...(object.language ? { language: object.language } : {})
+  }));
+  const edges: ProjectGraphEdge[] = [];
+  for (const object of project.objects) {
+    for (const relation of object.relations ?? []) edges.push({ source: object.id, target: relation.target, type: relation.type });
+    for (const source of object.derivedFrom ?? []) edges.push({ source: object.id, target: source, type: "derivedFrom" });
+  }
+  return { projectId: project.id, nodes, edges };
+}
+
+export function graphToDot(graph: ProjectGraph): string {
+  const escape = (value: string): string => value.replaceAll("\\", "\\\\").replaceAll('"', '\\"');
+  const lines = ["digraph CODEX {", "  rankdir=LR;"];
+  for (const node of graph.nodes) lines.push(`  "${escape(node.id)}" [label="${escape(node.id)}\\n${escape(node.title)}", shape=box];`);
+  for (const edge of graph.edges) lines.push(`  "${escape(edge.source)}" -> "${escape(edge.target)}" [label="${escape(edge.type)}"];`);
+  lines.push("}");
+  return `${lines.join("\n")}\n`;
+}
+
 function detectCycles(project: CodexProject, relationType: "contains" | "dependsOn", diagnostics: Diagnostic[]): void {
   const objectIds = new Set(project.objects.map((object) => object.id));
   const graph = new Map<string, string[]>();
-  for (const object of project.objects) {
-    graph.set(object.id, (object.relations ?? []).filter((relation) => relation.type === relationType).map((relation) => relation.target).filter((target) => objectIds.has(target)));
-  }
+  for (const object of project.objects) graph.set(object.id, (object.relations ?? []).filter((relation) => relation.type === relationType).map((relation) => relation.target).filter((target) => objectIds.has(target)));
   const visiting = new Set<string>();
   const visited = new Set<string>();
   const stack: string[] = [];
@@ -141,6 +185,7 @@ export function validateProject(project: CodexProject, options: ValidationOption
     if (!isRegisteredLifecycleStatus(object.status, registry)) push(diagnostics, { code: "ERR-1104", severity: "error", message: `Invalid lifecycle status: ${object.status}`, objectId: object.id, path: `${basePath}.status` });
     if (!object.title?.trim()) push(diagnostics, { code: "ERR-1105", severity: "error", message: "Object title must not be empty.", objectId: object.id, path: `${basePath}.title` });
     if (!semanticVersionPattern.test(object.version)) push(diagnostics, { code: "ERR-1106", severity: "error", message: `Object version is not valid semantic versioning: ${object.version}`, objectId: object.id, path: `${basePath}.version` });
+    if (object.language && !isRegisteredLanguage(object.language, registry)) push(diagnostics, { code: "ERR-1107", severity: "error", message: `Unregistered language code: ${object.language}`, objectId: object.id, path: `${basePath}.language` });
 
     for (const [sourceIndex, sourceId] of (object.derivedFrom ?? []).entries()) {
       const path = `${basePath}.derivedFrom[${sourceIndex}]`;
@@ -148,6 +193,11 @@ export function validateProject(project: CodexProject, options: ValidationOption
       else if (!objectsById.has(sourceId)) push(diagnostics, { code: "ERR-1302", severity: "error", message: `derivedFrom source does not exist: ${sourceId}`, objectId: object.id, path });
       else if (sourceId === object.id) push(diagnostics, { code: "ERR-1303", severity: "error", message: "An object cannot derive from itself.", objectId: object.id, path });
     }
+
+    const relationKinds = new Set((object.relations ?? []).map((relation) => relation.type));
+    const hasProvenance = (object.derivedFrom?.length ?? 0) > 0 || relationKinds.has("derivedFrom");
+    if (object.type === "translation" && !hasProvenance && !relationKinds.has("translates")) push(diagnostics, { code: "ERR-1304", severity: "error", message: "Translation must identify its source through derivedFrom or translates.", objectId: object.id, path: basePath });
+    if (object.type === "commentary" && !hasProvenance && !relationKinds.has("references") && !relationKinds.has("explains")) push(diagnostics, { code: "ERR-1305", severity: "error", message: "Commentary must identify the material it comments on.", objectId: object.id, path: basePath });
 
     for (const [relationIndex, relation] of (object.relations ?? []).entries()) {
       const relationPath = `${basePath}.relations[${relationIndex}]`;
