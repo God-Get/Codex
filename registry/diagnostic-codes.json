@@ -25,6 +25,10 @@
     {"code":"ERR-1303","severity":"error","title":"Self-derived object"},
     {"code":"ERR-1304","severity":"error","title":"Translation without source"},
     {"code":"ERR-1305","severity":"error","title":"Commentary without subject"},
-    {"code":"WARN-1401","severity":"warning","title":"Unreachable object"}
+    {"code":"WARN-1401","severity":"warning","title":"Unreachable object"},
+    {"code":"ERR-2001","severity":"error","title":"Project is not a JSON object"},
+    {"code":"ERR-2002","severity":"error","title":"Missing required schema property"},
+    {"code":"ERR-2003","severity":"error","title":"Invalid schema property type"},
+    {"code":"ERR-2004","severity":"error","title":"Additional schema property"}
   ]
 }
