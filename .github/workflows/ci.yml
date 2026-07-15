@@ -23,3 +23,8 @@ jobs:
       - run: npm run inspect:json
       - run: npm run graph
       - run: npm run graph:dot
+      - run: npm run graph:filtered
+      - run: npm run graph:write
+      - run: test -s codex-graph.dot
+      - run: npm run diagnostics
+      - run: npm run diagnostics:json
