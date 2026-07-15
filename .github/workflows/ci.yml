@@ -21,3 +21,5 @@ jobs:
       - run: npm run validate:json
       - run: npm run inspect
       - run: npm run inspect:json
+      - run: npm run graph
+      - run: npm run graph:dot
