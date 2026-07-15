@@ -1,0 +1,30 @@
+{
+  "$schema": "../schemas/diagnostic-codes.schema.json",
+  "registry": "codex.diagnostic-codes",
+  "version": "0.1.0",
+  "diagnostics": [
+    {"code":"ERR-1001","severity":"error","title":"Missing CODEX version"},
+    {"code":"ERR-1002","severity":"error","title":"Invalid project identifier"},
+    {"code":"ERR-1003","severity":"error","title":"Invalid project objects collection"},
+    {"code":"ERR-1004","severity":"error","title":"Invalid CODEX semantic version"},
+    {"code":"ERR-1101","severity":"error","title":"Invalid object identifier"},
+    {"code":"ERR-1102","severity":"error","title":"Duplicate object identifier"},
+    {"code":"ERR-1103","severity":"error","title":"Unregistered object type"},
+    {"code":"ERR-1104","severity":"error","title":"Invalid lifecycle status"},
+    {"code":"ERR-1105","severity":"error","title":"Empty object title"},
+    {"code":"ERR-1106","severity":"error","title":"Invalid object semantic version"},
+    {"code":"ERR-1107","severity":"error","title":"Unregistered language code"},
+    {"code":"ERR-1201","severity":"error","title":"Unregistered relation type"},
+    {"code":"ERR-1202","severity":"error","title":"Missing relation target"},
+    {"code":"ERR-1203","severity":"error","title":"Invalid relation source type"},
+    {"code":"ERR-1204","severity":"error","title":"Invalid relation target type"},
+    {"code":"ERR-1205","severity":"error","title":"Forbidden self-reference"},
+    {"code":"ERR-1206","severity":"error","title":"Cyclic relationship"},
+    {"code":"ERR-1301","severity":"error","title":"Invalid provenance identifier"},
+    {"code":"ERR-1302","severity":"error","title":"Missing provenance source"},
+    {"code":"ERR-1303","severity":"error","title":"Self-derived object"},
+    {"code":"ERR-1304","severity":"error","title":"Translation without source"},
+    {"code":"ERR-1305","severity":"error","title":"Commentary without subject"},
+    {"code":"WARN-1401","severity":"warning","title":"Unreachable object"}
+  ]
+}
