@@ -1,0 +1,16 @@
+{
+  "codexVersion": 1,
+  "id": "PROJ-0999",
+  "title": "Invalid Schema Fixture",
+  "unexpected": true,
+  "objects": [
+    {
+      "id": "WORK-0999",
+      "type": "work",
+      "title": "Broken Object",
+      "version": "0.1.0",
+      "status": "draft",
+      "relations": [{"type": "references"}]
+    }
+  ]
+}
