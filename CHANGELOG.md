@@ -11,9 +11,11 @@ All notable changes to CODEX are documented here.
 - `codex validate` with human-readable and JSON reports;
 - `codex doctor` environment and registry checks;
 - `codex inspect` with human-readable and JSON structural reports;
-- `codex graph` with JSON and Graphviz DOT exports;
+- `codex graph` with JSON and Graphviz DOT exports, relationship filters, and file output;
+- `codex diagnostics` with human-readable, JSON, and severity-filtered output;
 - `core` and `strict` validation profiles registered in `registry/validation-profiles.json`;
 - supported-language registry and language-code validation;
+- diagnostic-code registry with uniqueness and emitted-code conformance tests;
 - semantic relationship constraints;
 - semantic-version validation;
 - cycle detection for `contains` and `dependsOn`;
