@@ -15,6 +15,14 @@ async function loadFixture(path) {
   return JSON.parse(await readFile(path, "utf8"));
 }
 
+const invalidFixtures = [
+  "examples/invalid-project.json",
+  "examples/invalid-relations.json",
+  "examples/invalid-cycles-and-versions.json",
+  "examples/invalid-provenance-and-reachability.json",
+  "examples/invalid-language-and-provenance.json"
+];
+
 test("minimal project passes validation using JSON registry", async () => {
   const project = await loadFixture("examples/minimal-project.json");
   const report = validateProject(project, { registry: loadRegistry() });
@@ -107,6 +115,7 @@ test("runtime registry matches machine-readable registry files", async () => {
   const statusRegistry = await loadFixture("registry/lifecycle-statuses.json");
   const profileRegistry = await loadFixture("registry/validation-profiles.json");
   const languageRegistry = await loadFixture("registry/languages.json");
+  const diagnosticRegistry = await loadFixture("registry/diagnostic-codes.json");
   const loaded = loadRegistry();
   assert.deepEqual(objectRegistry.values, [...objectTypes]);
   assert.deepEqual(relationRegistry.values, [...relationTypes]);
@@ -118,18 +127,24 @@ test("runtime registry matches machine-readable registry files", async () => {
   assert.deepEqual(loaded.lifecycleStatuses, statusRegistry.values);
   assert.deepEqual(loaded.validationProfiles, profileRegistry.values);
   assert.deepEqual(loaded.languages, languageRegistry.values);
+  assert.deepEqual(loaded.diagnostics, diagnosticRegistry.diagnostics);
 });
 
-test("every diagnostic provides a stable error code", async () => {
-  for (const fixture of [
-    "examples/invalid-project.json",
-    "examples/invalid-relations.json",
-    "examples/invalid-cycles-and-versions.json",
-    "examples/invalid-provenance-and-reachability.json",
-    "examples/invalid-language-and-provenance.json"
-  ]) {
+test("diagnostic registry contains unique stable codes", () => {
+  const diagnostics = loadRegistry().diagnostics;
+  const codes = diagnostics.map((item) => item.code);
+  assert.equal(new Set(codes).size, codes.length);
+  for (const item of diagnostics) assert.match(item.code, /^(ERR|WARN|INFO)-[0-9]{4}$/);
+});
+
+test("every emitted diagnostic is registered", async () => {
+  const registry = loadRegistry();
+  const registered = new Set(registry.diagnostics.map((item) => item.code));
+  for (const fixture of invalidFixtures) {
     const project = await loadFixture(fixture);
-    const report = validateProject(project, { registry: loadRegistry(), profile: "strict" });
-    for (const diagnostic of report.diagnostics) assert.match(diagnostic.code, /^(ERR|WARN|INFO)-[0-9]{4}$/);
+    const report = validateProject(project, { registry, profile: "strict" });
+    for (const diagnostic of report.diagnostics) {
+      assert.equal(registered.has(diagnostic.code), true, `unregistered diagnostic ${diagnostic.code}`);
+    }
   }
 });
