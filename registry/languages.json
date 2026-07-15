@@ -1,0 +1,17 @@
+{
+  "$schema": "../schemas/registry-list.schema.json",
+  "registry": "codex.languages",
+  "version": "0.1.0",
+  "values": [
+    "ar",
+    "de",
+    "el",
+    "en",
+    "es",
+    "fr",
+    "he",
+    "it",
+    "la",
+    "ru"
+  ]
+}
