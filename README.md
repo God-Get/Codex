@@ -14,12 +14,10 @@ The repository contains a minimal TypeScript implementation:
 - `@codex/core` — canonical project, object, inspection, diagnostic, and validation interfaces;
 - `@codex/registry` — controlled vocabularies loaded from `registry/*.json`;
 - `@codex/validator` — structural, language, provenance, relationship, cycle, reachability, inspection, and graph logic;
-- `@codex/cli` — `codex validate`, `codex inspect`, `codex graph`, and `codex doctor` commands;
-- `registry/*.json` — machine-readable controlled vocabularies and relation constraints;
-- `schemas/*.json` — initial JSON Schemas;
-- `examples/` — valid and intentionally invalid conformance fixtures;
-- `tests/validator.test.mjs` — executable conformance and regression tests;
-- GitHub Actions CI for type checking, tests, diagnostics, inspection, graph export, and validation.
+- `@codex/cli` — `validate`, `inspect`, `graph`, `diagnostics`, and `doctor` commands;
+- machine-readable registries and JSON Schemas;
+- valid and intentionally invalid conformance fixtures;
+- executable regression tests and GitHub Actions CI.
 
 ### Run locally
 
@@ -30,14 +28,12 @@ npm test
 npm run doctor
 npm run validate
 npm run validate:strict
-npm run validate:json
 npm run inspect
-npm run inspect:json
 npm run graph
-npm run graph:dot
+npm run diagnostics
 ```
 
-Validate another JSON project:
+Validate another project:
 
 ```bash
 node apps/cli/dist/index.js validate path/to/project.json
@@ -52,14 +48,22 @@ node apps/cli/dist/index.js inspect path/to/project.json
 node apps/cli/dist/index.js inspect path/to/project.json --json
 ```
 
-Export the project graph:
+Export and filter the project graph:
 
 ```bash
 node apps/cli/dist/index.js graph path/to/project.json --format=json
 node apps/cli/dist/index.js graph path/to/project.json --format=dot
+node apps/cli/dist/index.js graph path/to/project.json --relations=contains,derivedFrom
+node apps/cli/dist/index.js graph path/to/project.json --format=dot --output=project.dot
 ```
 
-The inspection report includes object and relation counts, provenance-link counts, containment roots, unreachable objects, object-type distribution, lifecycle-status distribution, and languages.
+List registered diagnostics:
+
+```bash
+node apps/cli/dist/index.js diagnostics
+node apps/cli/dist/index.js diagnostics --json
+node apps/cli/dist/index.js diagnostics --severity=warning
+```
 
 ## Validation profiles
 
@@ -68,19 +72,16 @@ The inspection report includes object and relation counts, provenance-link count
 
 ## Current validation coverage
 
-- project and object identifier syntax;
-- unique object identifiers;
-- semantic versions for CODEX and project objects;
-- registered object, relationship, lifecycle, validation-profile, and language values;
+- identifier syntax and uniqueness;
+- semantic versions;
+- registered object, relationship, lifecycle, profile, language, and diagnostic values;
 - relationship source and target constraints;
-- forbidden self-references;
-- missing relationship targets;
-- cycles in `contains` and `dependsOn` graphs;
-- `derivedFrom` identifier syntax, existence, and self-reference;
+- missing targets, self-references, and graph cycles;
+- `derivedFrom` provenance integrity;
 - required provenance for translations and commentaries;
 - strict-profile containment reachability;
-- JSON and Graphviz DOT graph export;
-- runtime loading of controlled vocabularies from JSON registry files.
+- JSON and Graphviz DOT graph export, filtering, and file output;
+- consistency between emitted diagnostics and the diagnostic registry.
 
 ## Start here
 
@@ -97,7 +98,7 @@ The inspection report includes object and relation counts, provenance-link count
 ## Repository structure
 
 ```text
-apps/          executable applications, beginning with the CLI
+apps/          executable applications
 packages/      reusable core, registry, and validator packages
 core/          normative CODEX Core drafts
 registry/      machine-readable controlled vocabularies
