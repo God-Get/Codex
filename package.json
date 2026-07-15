@@ -14,6 +14,10 @@
     "inspect:json": "node apps/cli/dist/index.js inspect examples/minimal-project.json --json",
     "graph": "node apps/cli/dist/index.js graph examples/minimal-project.json --format=json",
     "graph:dot": "node apps/cli/dist/index.js graph examples/minimal-project.json --format=dot",
+    "graph:filtered": "node apps/cli/dist/index.js graph examples/minimal-project.json --format=json --relations=translates,derivedFrom",
+    "graph:write": "node apps/cli/dist/index.js graph examples/minimal-project.json --format=dot --output=codex-graph.dot",
+    "diagnostics": "node apps/cli/dist/index.js diagnostics",
+    "diagnostics:json": "node apps/cli/dist/index.js diagnostics --json",
     "doctor": "node apps/cli/dist/index.js doctor",
     "test": "npm run build && node --test tests/**/*.test.mjs"
   },
