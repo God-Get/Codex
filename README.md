@@ -13,13 +13,13 @@ The repository contains a minimal TypeScript implementation:
 
 - `@codex/core` — canonical project, object, inspection, diagnostic, and validation interfaces;
 - `@codex/registry` — controlled vocabularies loaded from `registry/*.json`;
-- `@codex/validator` — structural, provenance, relationship, cycle, and reachability validation;
-- `@codex/cli` — `codex validate`, `codex inspect`, and `codex doctor` commands;
+- `@codex/validator` — structural, language, provenance, relationship, cycle, reachability, inspection, and graph logic;
+- `@codex/cli` — `codex validate`, `codex inspect`, `codex graph`, and `codex doctor` commands;
 - `registry/*.json` — machine-readable controlled vocabularies and relation constraints;
 - `schemas/*.json` — initial JSON Schemas;
 - `examples/` — valid and intentionally invalid conformance fixtures;
-- `tests/validator.test.mjs` — executable validator, registry, profile, and inspection tests;
-- GitHub Actions CI for type checking, tests, diagnostics, inspection, and validation.
+- `tests/validator.test.mjs` — executable conformance and regression tests;
+- GitHub Actions CI for type checking, tests, diagnostics, inspection, graph export, and validation.
 
 ### Run locally
 
@@ -33,6 +33,8 @@ npm run validate:strict
 npm run validate:json
 npm run inspect
 npm run inspect:json
+npm run graph
+npm run graph:dot
 ```
 
 Validate another JSON project:
@@ -50,6 +52,13 @@ node apps/cli/dist/index.js inspect path/to/project.json
 node apps/cli/dist/index.js inspect path/to/project.json --json
 ```
 
+Export the project graph:
+
+```bash
+node apps/cli/dist/index.js graph path/to/project.json --format=json
+node apps/cli/dist/index.js graph path/to/project.json --format=dot
+```
+
 The inspection report includes object and relation counts, provenance-link counts, containment roots, unreachable objects, object-type distribution, lifecycle-status distribution, and languages.
 
 ## Validation profiles
@@ -62,13 +71,15 @@ The inspection report includes object and relation counts, provenance-link count
 - project and object identifier syntax;
 - unique object identifiers;
 - semantic versions for CODEX and project objects;
-- registered object, relationship, and lifecycle values;
+- registered object, relationship, lifecycle, validation-profile, and language values;
 - relationship source and target constraints;
 - forbidden self-references;
 - missing relationship targets;
 - cycles in `contains` and `dependsOn` graphs;
 - `derivedFrom` identifier syntax, existence, and self-reference;
+- required provenance for translations and commentaries;
 - strict-profile containment reachability;
+- JSON and Graphviz DOT graph export;
 - runtime loading of controlled vocabularies from JSON registry files.
 
 ## Start here
