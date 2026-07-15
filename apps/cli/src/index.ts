@@ -4,7 +4,7 @@ import { access, readFile } from "node:fs/promises";
 import process from "node:process";
 import type { CodexProject, ValidationProfile, ValidationReport } from "@codex/core";
 import { isRegisteredValidationProfile, loadRegistry } from "@codex/registry";
-import { inspectProject, validateProject } from "@codex/validator";
+import { buildProjectGraph, graphToDot, inspectProject, validateProject } from "@codex/validator";
 
 function printHumanReport(report: ValidationReport): void {
   for (const diagnostic of report.diagnostics) {
@@ -80,6 +80,24 @@ async function inspectCommand(filePath: string, jsonOutput: boolean): Promise<vo
   console.log(`LANGUAGES: ${JSON.stringify(inspection.languages)}`);
 }
 
+async function graphCommand(filePath: string, args: string[]): Promise<void> {
+  const project = await loadProject(filePath);
+  if (!project) return;
+  const graph = buildProjectGraph(project);
+  const formatArgument = args.find((arg) => arg.startsWith("--format="));
+  const format = formatArgument?.split("=")[1] ?? "json";
+  if (format === "json") {
+    console.log(JSON.stringify(graph, null, 2));
+    return;
+  }
+  if (format === "dot") {
+    process.stdout.write(graphToDot(graph));
+    return;
+  }
+  console.error(`Unknown graph format: ${format}. Supported formats: json, dot`);
+  process.exitCode = 2;
+}
+
 async function doctorCommand(): Promise<void> {
   const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
   const nodeMajor = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
@@ -96,6 +114,7 @@ async function doctorCommand(): Promise<void> {
     "registry/relation-types.json",
     "registry/lifecycle-statuses.json",
     "registry/validation-profiles.json",
+    "registry/languages.json",
     "registry/relation-constraints.json"
   ];
 
@@ -112,8 +131,8 @@ async function doctorCommand(): Promise<void> {
     const registry = loadRegistry();
     checks.push({
       name: "Registry",
-      ok: registry.objectTypes.length > 0 && registry.relationTypes.length > 0 && registry.lifecycleStatuses.length > 0 && registry.validationProfiles.length > 0,
-      detail: `${registry.objectTypes.length} object types, ${registry.relationTypes.length} relation types, ${registry.lifecycleStatuses.length} statuses, ${registry.validationProfiles.length} validation profiles`
+      ok: registry.objectTypes.length > 0 && registry.relationTypes.length > 0 && registry.lifecycleStatuses.length > 0 && registry.validationProfiles.length > 0 && registry.languages.length > 0,
+      detail: `${registry.objectTypes.length} object types, ${registry.relationTypes.length} relation types, ${registry.lifecycleStatuses.length} statuses, ${registry.validationProfiles.length} validation profiles, ${registry.languages.length} languages`
     });
   } catch (error) {
     checks.push({ name: "Registry", ok: false, detail: error instanceof Error ? error.message : String(error) });
@@ -138,12 +157,16 @@ async function main(): Promise<void> {
     await inspectCommand(argument, args.includes("--json"));
     return;
   }
+  if (command === "graph" && argument) {
+    await graphCommand(argument, args);
+    return;
+  }
   if (command === "doctor") {
     await doctorCommand();
     return;
   }
 
-  console.error("Usage:\n  codex validate <project.json> [--json] [--profile=core|strict]\n  codex inspect <project.json> [--json]\n  codex doctor");
+  console.error("Usage:\n  codex validate <project.json> [--json] [--profile=core|strict]\n  codex inspect <project.json> [--json]\n  codex graph <project.json> [--format=json|dot]\n  codex doctor");
   process.exitCode = 2;
 }
 
