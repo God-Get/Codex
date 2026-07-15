@@ -9,6 +9,7 @@ import {
   relationTypes,
   validationProfiles
 } from "../packages/registry/dist/index.js";
+import { validateProjectSchema } from "../packages/schema/dist/index.js";
 import { buildProjectGraph, graphToDot, inspectProject, validateProject } from "../packages/validator/dist/index.js";
 
 async function loadFixture(path) {
@@ -23,12 +24,21 @@ const invalidFixtures = [
   "examples/invalid-language-and-provenance.json"
 ];
 
-test("minimal project passes validation using JSON registry", async () => {
+test("minimal project passes schema and semantic validation", async () => {
   const project = await loadFixture("examples/minimal-project.json");
+  assert.deepEqual(validateProjectSchema(project), []);
   const report = validateProject(project, { registry: loadRegistry() });
   assert.equal(report.valid, true);
   assert.deepEqual(report.diagnostics, []);
   assert.deepEqual(report.summary, { errors: 0, warnings: 0, info: 0, total: 0 });
+});
+
+test("invalid schema fixture produces structural diagnostics", async () => {
+  const project = await loadFixture("examples/invalid-schema.json");
+  const codes = new Set(validateProjectSchema(project).map((diagnostic) => diagnostic.code));
+  assert.equal(codes.has("ERR-2002"), true);
+  assert.equal(codes.has("ERR-2003"), true);
+  assert.equal(codes.has("ERR-2004"), true);
 });
 
 test("invalid project produces expected diagnostics", async () => {
@@ -143,8 +153,8 @@ test("every emitted diagnostic is registered", async () => {
   for (const fixture of invalidFixtures) {
     const project = await loadFixture(fixture);
     const report = validateProject(project, { registry, profile: "strict" });
-    for (const diagnostic of report.diagnostics) {
-      assert.equal(registered.has(diagnostic.code), true, `unregistered diagnostic ${diagnostic.code}`);
-    }
+    for (const diagnostic of report.diagnostics) assert.equal(registered.has(diagnostic.code), true, `unregistered diagnostic ${diagnostic.code}`);
   }
+  const schemaDiagnostics = validateProjectSchema(await loadFixture("examples/invalid-schema.json"));
+  for (const diagnostic of schemaDiagnostics) assert.equal(registered.has(diagnostic.code), true, `unregistered diagnostic ${diagnostic.code}`);
 });
