@@ -6,24 +6,20 @@ All notable changes to CODEX are documented here.
 
 ### Added
 
-- TypeScript workspace with core, registry, validator, and CLI packages;
+- TypeScript workspace with core, registry, schema, validator, and CLI packages;
 - machine-readable JSON registries and JSON Schemas;
-- `codex validate` with human-readable and JSON reports;
-- `codex doctor` environment and registry checks;
+- structural schema validation with stable `ERR-2001…ERR-2004` diagnostics;
+- `codex validate` with human-readable, JSON, and SARIF reports;
+- `codex doctor` environment, registry, schema, and release-manifest checks;
 - `codex inspect` with human-readable and JSON structural reports;
 - `codex graph` with JSON and Graphviz DOT exports, relationship filters, and file output;
 - `codex diagnostics` with human-readable, JSON, and severity-filtered output;
-- `core` and `strict` validation profiles registered in `registry/validation-profiles.json`;
-- supported-language registry and language-code validation;
-- diagnostic-code registry with uniqueness and emitted-code conformance tests;
-- semantic relationship constraints;
-- semantic-version validation;
-- cycle detection for `contains` and `dependsOn`;
-- `derivedFrom` provenance validation;
+- `core` and `strict` validation profiles;
+- supported-language and diagnostic-code registries;
+- semantic relationship, version, provenance, cycle, and reachability validation;
 - required source identification for translations and commentaries;
-- strict-profile containment reachability warnings;
-- diagnostic summaries and executable regression tests;
-- GitHub Actions continuous integration.
+- draft immutable release manifest at `releases/0.1.0/manifest.json`;
+- executable conformance tests and GitHub Actions continuous integration.
 
 ## [0.0.1] — Genesis — 2026-07-14
 
