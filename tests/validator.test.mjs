@@ -2,13 +2,14 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 import {
+  languages,
   lifecycleStatuses,
   loadRegistry,
   objectTypes,
   relationTypes,
   validationProfiles
 } from "../packages/registry/dist/index.js";
-import { inspectProject, validateProject } from "../packages/validator/dist/index.js";
+import { buildProjectGraph, graphToDot, inspectProject, validateProject } from "../packages/validator/dist/index.js";
 
 async function loadFixture(path) {
   return JSON.parse(await readFile(path, "utf8"));
@@ -68,6 +69,15 @@ test("provenance references and strict reachability are validated", async () => 
   assert.equal(strictReport.summary.warnings, 1);
 });
 
+test("languages and required scholarly provenance are validated", async () => {
+  const project = await loadFixture("examples/invalid-language-and-provenance.json");
+  const report = validateProject(project, { registry: loadRegistry() });
+  const codes = new Set(report.diagnostics.map((diagnostic) => diagnostic.code));
+  assert.equal(codes.has("ERR-1107"), true);
+  assert.equal(codes.has("ERR-1304"), true);
+  assert.equal(codes.has("ERR-1305"), true);
+});
+
 test("inspection reports project structure", async () => {
   const project = await loadFixture("examples/invalid-provenance-and-reachability.json");
   const inspection = inspectProject(project);
@@ -79,20 +89,35 @@ test("inspection reports project structure", async () => {
   assert.equal(inspection.objectTypes.translation, 1);
 });
 
+test("graph export includes relation and provenance edges", async () => {
+  const project = await loadFixture("examples/minimal-project.json");
+  const graph = buildProjectGraph(project);
+  assert.equal(graph.nodes.length, 2);
+  assert.equal(graph.edges.length, 1);
+  assert.deepEqual(graph.edges[0], { source: "TR-0001", target: "WORK-0001", type: "translates" });
+  const dot = graphToDot(graph);
+  assert.match(dot, /^digraph CODEX/);
+  assert.match(dot, /TR-0001/);
+  assert.match(dot, /translates/);
+});
+
 test("runtime registry matches machine-readable registry files", async () => {
   const objectRegistry = await loadFixture("registry/object-types.json");
   const relationRegistry = await loadFixture("registry/relation-types.json");
   const statusRegistry = await loadFixture("registry/lifecycle-statuses.json");
   const profileRegistry = await loadFixture("registry/validation-profiles.json");
+  const languageRegistry = await loadFixture("registry/languages.json");
   const loaded = loadRegistry();
   assert.deepEqual(objectRegistry.values, [...objectTypes]);
   assert.deepEqual(relationRegistry.values, [...relationTypes]);
   assert.deepEqual(statusRegistry.values, [...lifecycleStatuses]);
   assert.deepEqual(profileRegistry.values, [...validationProfiles]);
+  assert.deepEqual(languageRegistry.values, [...languages]);
   assert.deepEqual(loaded.objectTypes, objectRegistry.values);
   assert.deepEqual(loaded.relationTypes, relationRegistry.values);
   assert.deepEqual(loaded.lifecycleStatuses, statusRegistry.values);
   assert.deepEqual(loaded.validationProfiles, profileRegistry.values);
+  assert.deepEqual(loaded.languages, languageRegistry.values);
 });
 
 test("every diagnostic provides a stable error code", async () => {
@@ -100,7 +125,8 @@ test("every diagnostic provides a stable error code", async () => {
     "examples/invalid-project.json",
     "examples/invalid-relations.json",
     "examples/invalid-cycles-and-versions.json",
-    "examples/invalid-provenance-and-reachability.json"
+    "examples/invalid-provenance-and-reachability.json",
+    "examples/invalid-language-and-provenance.json"
   ]) {
     const project = await loadFixture(fixture);
     const report = validateProject(project, { registry: loadRegistry(), profile: "strict" });
