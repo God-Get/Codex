@@ -10,6 +10,8 @@
     "validate": "node apps/cli/dist/index.js validate examples/minimal-project.json",
     "validate:strict": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=strict",
     "validate:json": "node apps/cli/dist/index.js validate examples/minimal-project.json --json",
+    "validate:sarif": "node apps/cli/dist/index.js validate examples/minimal-project.json --sarif --output=codex-results.sarif",
+    "validate:schema-invalid": "node apps/cli/dist/index.js validate examples/invalid-schema.json --json",
     "inspect": "node apps/cli/dist/index.js inspect examples/minimal-project.json",
     "inspect:json": "node apps/cli/dist/index.js inspect examples/minimal-project.json --json",
     "graph": "node apps/cli/dist/index.js graph examples/minimal-project.json --format=json",
