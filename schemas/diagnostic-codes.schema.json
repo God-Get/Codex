@@ -1,0 +1,26 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex.example/schemas/diagnostic-codes.schema.json",
+  "title": "CODEX Diagnostic Code Registry",
+  "type": "object",
+  "required": ["registry", "version", "diagnostics"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "registry": {"const": "codex.diagnostic-codes"},
+    "version": {"type": "string"},
+    "diagnostics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["code", "severity", "title"],
+        "properties": {
+          "code": {"type": "string", "pattern": "^(ERR|WARN|INFO)-[0-9]{4}$"},
+          "severity": {"enum": ["error", "warning", "info"]},
+          "title": {"type": "string", "minLength": 1}
+        },
+        "additionalProperties": false
+      }
+    }
+  },
+  "additionalProperties": false
+}
