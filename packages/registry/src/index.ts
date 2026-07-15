@@ -12,6 +12,8 @@ export const lifecycleStatuses = [
 
 export const validationProfiles = ["core", "strict"] as const;
 
+export const languages = ["ar", "de", "el", "en", "es", "fr", "he", "it", "la", "ru"] as const;
+
 export const objectTypes = [
   "project",
   "work",
@@ -59,6 +61,7 @@ export interface RegistryData {
   relationTypes: readonly string[];
   lifecycleStatuses: readonly string[];
   validationProfiles: readonly string[];
+  languages: readonly string[];
   relationConstraints: Readonly<Record<string, { sources: readonly string[]; targets: readonly string[] }>>;
 }
 
@@ -81,6 +84,7 @@ export function loadRegistry(rootDirectory = process.cwd()): RegistryData {
     relationTypes: readJson<RegistryListFile>(resolve(registryDirectory, "relation-types.json")).values,
     lifecycleStatuses: readJson<RegistryListFile>(resolve(registryDirectory, "lifecycle-statuses.json")).values,
     validationProfiles: readJson<RegistryListFile>(resolve(registryDirectory, "validation-profiles.json")).values,
+    languages: readJson<RegistryListFile>(resolve(registryDirectory, "languages.json")).values,
     relationConstraints: readJson<RelationConstraintFile>(resolve(registryDirectory, "relation-constraints.json")).constraints
   };
 }
@@ -90,6 +94,7 @@ export const defaultRegistry: RegistryData = {
   relationTypes,
   lifecycleStatuses,
   validationProfiles,
+  languages,
   relationConstraints
 };
 
@@ -110,4 +115,8 @@ export function isRegisteredLifecycleStatus(value: string, registry: RegistryDat
 
 export function isRegisteredValidationProfile(value: string, registry: RegistryData = defaultRegistry): boolean {
   return registry.validationProfiles.includes(value);
+}
+
+export function isRegisteredLanguage(value: string, registry: RegistryData = defaultRegistry): boolean {
+  return registry.languages.includes(value);
 }
