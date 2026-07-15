@@ -19,6 +19,9 @@ jobs:
       - run: npm run validate
       - run: npm run validate:strict
       - run: npm run validate:json
+      - run: npm run validate:sarif
+      - run: test -s codex-results.sarif
+      - run: "! npm run validate:schema-invalid"
       - run: npm run inspect
       - run: npm run inspect:json
       - run: npm run graph
