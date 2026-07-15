@@ -1,0 +1,31 @@
+{
+  "codexVersion": "0.1.0",
+  "id": "PROJ-0008",
+  "title": "Invalid Language and Provenance",
+  "objects": [
+    {
+      "id": "WORK-0008",
+      "type": "work",
+      "title": "Source Work",
+      "version": "0.1.0",
+      "status": "draft",
+      "language": "xx"
+    },
+    {
+      "id": "TR-0008",
+      "type": "translation",
+      "title": "Untraced Translation",
+      "version": "0.1.0",
+      "status": "draft",
+      "language": "ru"
+    },
+    {
+      "id": "COMM-0008",
+      "type": "commentary",
+      "title": "Untraced Commentary",
+      "version": "0.1.0",
+      "status": "draft",
+      "language": "en"
+    }
+  ]
+}
