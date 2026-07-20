@@ -140,12 +140,16 @@ export async function buildReleasePackage(
   }
 
   const manifest = await readReleaseManifest(manifestPath);
-  const output = resolve(outputDirectory);
+  const root = resolve(rootDirectory);
+  const output = resolveInside(root, outputDirectory);
+  if (output === root) {
+    throw new Error("Package output directory must not be the repository root.");
+  }
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
 
   for (const relativePath of releasePaths(manifest)) {
-    const source = resolveInside(rootDirectory, relativePath);
+    const source = resolveInside(root, relativePath);
     const destination = resolveInside(output, relativePath);
     await mkdir(dirname(destination), { recursive: true });
     await copyFile(source, destination);
