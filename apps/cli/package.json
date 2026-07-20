@@ -6,6 +6,7 @@
   "dependencies": {
     "@codex/core": "0.1.0",
     "@codex/registry": "0.1.0",
+    "@codex/release": "0.1.0",
     "@codex/schema": "0.1.0",
     "@codex/validator": "0.1.0"
   }
