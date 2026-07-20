@@ -46,7 +46,7 @@ jobs:
       - run: npm run release:verify:json
       - run: npm run package:build
       - run: test -s codex-package-0.1.0/CHECKSUMS.sha256
-      - run: tar -czf codex-package-0.1.0.tgz -C codex-package-0.1.0 .
+      - run: tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf codex-package-0.1.0.tgz -C codex-package-0.1.0 .
       - name: Upload portable CODEX package
         uses: actions/upload-artifact@v4
         with:
