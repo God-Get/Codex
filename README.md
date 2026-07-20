@@ -13,10 +13,11 @@ The repository contains:
 
 - `@codex/core` — canonical interfaces;
 - `@codex/registry` — machine-readable controlled vocabularies;
-- `@codex/schema` — structural project validation aligned with the project JSON Schema;
+- `@codex/schema` — structural project validation aligned with JSON Schema;
 - `@codex/validator` — semantic, provenance, relationship, cycle, reachability, inspection, and graph logic;
-- `@codex/cli` — `validate`, `inspect`, `graph`, `diagnostics`, and `doctor`;
-- conformance fixtures, regression tests, CI, and a draft `0.1.0` release manifest.
+- `@codex/release` — SHA-256 manifests, release verification, and portable package assembly;
+- `@codex/cli` — `validate`, `inspect`, `graph`, `diagnostics`, `release`, `package`, and `doctor`;
+- conformance fixtures, regression tests, CI, SARIF publication, and a draft `0.1.0` release manifest.
 
 ## Run locally
 
@@ -30,6 +31,9 @@ npm run validate:strict
 npm run inspect
 npm run graph
 npm run diagnostics
+npm run release:prepare
+npm run release:verify
+npm run package:build
 ```
 
 ## Validation
@@ -69,6 +73,26 @@ node apps/cli/dist/index.js diagnostics --severity=warning
 
 Every emitted diagnostic must be registered in `registry/diagnostic-codes.json`. Schema diagnostics use the `ERR-2001…ERR-2004` range.
 
+## Release integrity and portable packages
+
+The editable source manifest lists release files. Preparation computes SHA-256 checksums and writes a sealed manifest snapshot:
+
+```bash
+node apps/cli/dist/index.js release prepare releases/0.1.0/manifest.json \
+  --output=releases/0.1.0/manifest.prepared.json
+node apps/cli/dist/index.js release verify releases/0.1.0/manifest.prepared.json
+node apps/cli/dist/index.js release verify releases/0.1.0/manifest.prepared.json --json
+```
+
+Build a portable directory containing the sealed manifest, release files, package descriptor, and `CHECKSUMS.sha256`:
+
+```bash
+node apps/cli/dist/index.js package build releases/0.1.0/manifest.prepared.json \
+  --output=codex-package-0.1.0
+```
+
+GitHub Actions archives this directory as `codex-package-0.1.0.tgz` and uploads it as a workflow artifact. The workflow also attempts to upload `codex-results.sarif` to GitHub Code Scanning; availability depends on repository security settings.
+
 ## Current validation coverage
 
 - JSON structure, required fields, property types, and unexpected properties;
@@ -77,19 +101,20 @@ Every emitted diagnostic must be registered in `registry/diagnostic-codes.json`.
 - relationship constraints, missing targets, self-references, and graph cycles;
 - provenance integrity and mandatory scholarly source links;
 - strict containment reachability;
-- JSON, DOT, and SARIF output.
+- JSON, DOT, and SARIF output;
+- release-file SHA-256 verification and tamper detection.
 
 ## Repository structure
 
 ```text
 apps/          executable applications
-packages/      core, registry, schema, and validator packages
+packages/      core, registry, schema, validator, and release packages
 core/          normative CODEX Core drafts
 registry/      machine-readable controlled vocabularies
 schemas/       machine-readable validation schemas
 examples/      valid and invalid conformance fixtures
 tests/         executable conformance and regression tests
-releases/      immutable release manifests and notes
+releases/      source and prepared release manifests
 rfc/           proposals and extensions
 adr/           architectural decisions
 specs/         implementation specifications
