@@ -5,6 +5,7 @@
     {"path": "packages/registry"},
     {"path": "packages/schema"},
     {"path": "packages/validator"},
+    {"path": "packages/release"},
     {"path": "apps/cli"}
   ]
 }
