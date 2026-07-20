@@ -20,6 +20,11 @@
     "graph:write": "node apps/cli/dist/index.js graph examples/minimal-project.json --format=dot --output=codex-graph.dot",
     "diagnostics": "node apps/cli/dist/index.js diagnostics",
     "diagnostics:json": "node apps/cli/dist/index.js diagnostics --json",
+    "release:prepare": "node apps/cli/dist/index.js release prepare releases/0.1.0/manifest.json --output=releases/0.1.0/manifest.prepared.json",
+    "release:verify": "node apps/cli/dist/index.js release verify releases/0.1.0/manifest.prepared.json",
+    "release:verify:json": "node apps/cli/dist/index.js release verify releases/0.1.0/manifest.prepared.json --json",
+    "package:build": "node apps/cli/dist/index.js package build releases/0.1.0/manifest.prepared.json --output=codex-package-0.1.0",
+    "package:build:json": "node apps/cli/dist/index.js package build releases/0.1.0/manifest.prepared.json --output=codex-package-0.1.0 --json",
     "doctor": "node apps/cli/dist/index.js doctor",
     "test": "npm run build && node --test tests/**/*.test.mjs"
   },
