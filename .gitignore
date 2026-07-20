@@ -1,0 +1,8 @@
+node_modules/
+**/dist/
+*.tsbuildinfo
+codex-results.sarif
+codex-graph.dot
+codex-package-*/
+codex-package-*.tgz
+releases/*/manifest.prepared.json
