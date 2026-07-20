@@ -4,11 +4,20 @@ import { access, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
 import type { CodexProject, Diagnostic, ValidationProfile, ValidationReport } from "@codex/core";
 import { isRegisteredValidationProfile, loadRegistry } from "@codex/registry";
+import {
+  buildReleasePackage,
+  verifyReleaseManifest,
+  writePreparedReleaseManifest
+} from "@codex/release";
 import { validateProjectSchema } from "@codex/schema";
 import { buildProjectGraph, graphToDot, inspectProject, validateProject } from "@codex/validator";
 
 function optionValue(args: string[], name: string): string | undefined {
   return args.find((arg) => arg.startsWith(`${name}=`))?.slice(name.length + 1);
+}
+
+function positionalValue(args: string[]): string | undefined {
+  return args.find((arg) => !arg.startsWith("--"));
 }
 
 function summarize(diagnostics: Diagnostic[]): ValidationReport["summary"] {
@@ -161,6 +170,58 @@ function diagnosticsCommand(args: string[]): void {
   console.log(`TOTAL: ${diagnostics.length}`);
 }
 
+async function releaseCommand(action: string | undefined, args: string[]): Promise<void> {
+  const manifestPath = positionalValue(args) ?? "releases/0.1.0/manifest.json";
+  try {
+    if (action === "prepare") {
+      const outputPath = optionValue(args, "--output") ?? manifestPath;
+      const manifest = await writePreparedReleaseManifest(manifestPath, outputPath);
+      if (args.includes("--json")) console.log(JSON.stringify(manifest, null, 2));
+      else console.log(`PREPARED: ${manifest.id} ${manifest.version} -> ${outputPath}`);
+      return;
+    }
+
+    if (action === "verify") {
+      const report = await verifyReleaseManifest(manifestPath);
+      if (args.includes("--json")) console.log(JSON.stringify(report, null, 2));
+      else {
+        for (const item of report.items) {
+          console.log(`${item.ok ? "PASS" : "FAIL"}: ${item.path}${item.reason ? ` — ${item.reason}` : ""}`);
+        }
+        console.log(`${report.valid ? "PASS" : "FAIL"}: release ${report.releaseId} ${report.version}`);
+      }
+      if (!report.valid) process.exitCode = 1;
+      return;
+    }
+  } catch (error) {
+    console.error(`Release operation failed: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+    return;
+  }
+
+  console.error("Usage:\n  codex release prepare [manifest.json] [--output=file] [--json]\n  codex release verify [manifest.json] [--json]");
+  process.exitCode = 2;
+}
+
+async function packageCommand(action: string | undefined, args: string[]): Promise<void> {
+  if (action !== "build") {
+    console.error("Usage:\n  codex package build [manifest.json] [--output=directory] [--json]");
+    process.exitCode = 2;
+    return;
+  }
+
+  const manifestPath = positionalValue(args) ?? "releases/0.1.0/manifest.json";
+  const outputDirectory = optionValue(args, "--output") ?? "codex-package";
+  try {
+    const result = await buildReleasePackage(manifestPath, outputDirectory);
+    if (args.includes("--json")) console.log(JSON.stringify(result, null, 2));
+    else console.log(`BUILT: ${result.releaseId} ${result.version} — ${result.fileCount} files -> ${result.outputDirectory}`);
+  } catch (error) {
+    console.error(`Package build failed: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  }
+}
+
 async function doctorCommand(): Promise<void> {
   const checks: Array<{ name: string; ok: boolean; detail: string }> = [];
   const nodeMajor = Number.parseInt(process.versions.node.split(".")[0] ?? "0", 10);
@@ -193,8 +254,10 @@ async function main(): Promise<void> {
   if (command === "inspect" && argument) return inspectCommand(argument, args.includes("--json"));
   if (command === "graph" && argument) return graphCommand(argument, args);
   if (command === "diagnostics") return diagnosticsCommand([argument, ...args].filter((value): value is string => Boolean(value)));
+  if (command === "release") return releaseCommand(argument, args);
+  if (command === "package") return packageCommand(argument, args);
   if (command === "doctor") return doctorCommand();
-  console.error("Usage:\n  codex validate <project.json> [--json|--sarif] [--profile=core|strict] [--output=file]\n  codex inspect <project.json> [--json]\n  codex graph <project.json> [--format=json|dot] [--relations=contains,derivedFrom] [--output=file]\n  codex diagnostics [--json] [--severity=error|warning|info]\n  codex doctor");
+  console.error("Usage:\n  codex validate <project.json> [--json|--sarif] [--profile=core|strict] [--output=file]\n  codex inspect <project.json> [--json]\n  codex graph <project.json> [--format=json|dot] [--relations=contains,derivedFrom] [--output=file]\n  codex diagnostics [--json] [--severity=error|warning|info]\n  codex release prepare|verify [manifest.json] [--output=file] [--json]\n  codex package build [manifest.json] [--output=directory] [--json]\n  codex doctor");
   process.exitCode = 2;
 }
 
