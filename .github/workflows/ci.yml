@@ -4,6 +4,10 @@ on:
   push:
   pull_request:
 
+permissions:
+  contents: read
+  security-events: write
+
 jobs:
   build-test-validate:
     runs-on: ubuntu-latest
@@ -21,6 +25,12 @@ jobs:
       - run: npm run validate:json
       - run: npm run validate:sarif
       - run: test -s codex-results.sarif
+      - name: Upload CODEX SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        continue-on-error: true
+        with:
+          sarif_file: codex-results.sarif
+          category: codex-validator
       - run: "! npm run validate:schema-invalid"
       - run: npm run inspect
       - run: npm run inspect:json
@@ -31,3 +41,15 @@ jobs:
       - run: test -s codex-graph.dot
       - run: npm run diagnostics
       - run: npm run diagnostics:json
+      - run: npm run release:prepare
+      - run: npm run release:verify
+      - run: npm run release:verify:json
+      - run: npm run package:build
+      - run: test -s codex-package-0.1.0/CHECKSUMS.sha256
+      - run: tar -czf codex-package-0.1.0.tgz -C codex-package-0.1.0 .
+      - name: Upload portable CODEX package
+        uses: actions/upload-artifact@v4
+        with:
+          name: codex-package-0.1.0
+          path: codex-package-0.1.0.tgz
+          if-no-files-found: error
