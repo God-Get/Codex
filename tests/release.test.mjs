@@ -37,6 +37,10 @@ test("release manifests are checksummed, verified, and packaged", async () => {
     const validReport = await verifyReleaseManifest(preparedManifest, root);
     assert.equal(validReport.valid, true);
     assert.equal(validReport.items.length, 2);
+    await assert.rejects(
+      () => buildReleasePackage(preparedManifest, root, root),
+      /must not be the repository root/
+    );
 
     const packageDirectory = join(root, "package");
     const packageResult = await buildReleasePackage(preparedManifest, packageDirectory, root);
