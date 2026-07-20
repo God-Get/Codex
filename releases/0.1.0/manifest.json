@@ -1,5 +1,6 @@
 {
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$schema": "../../schemas/release-manifest.schema.json",
+  "formatVersion": "0.1.0",
   "id": "RELEASE-0001",
   "name": "CODEX Engineering MVP",
   "version": "0.1.0",
@@ -10,10 +11,15 @@
     "registry": "0.1.0",
     "schema": "0.1.0",
     "validator": "0.1.0",
+    "release": "0.1.0",
     "cli": "0.1.0"
   },
   "artifacts": [
     "schemas/project.schema.json",
+    "schemas/registry-list.schema.json",
+    "schemas/relation-constraints.schema.json",
+    "schemas/diagnostic-codes.schema.json",
+    "schemas/release-manifest.schema.json",
     "registry/object-types.json",
     "registry/relation-types.json",
     "registry/lifecycle-statuses.json",
@@ -28,6 +34,7 @@
     "examples/invalid-relations.json",
     "examples/invalid-cycles-and-versions.json",
     "examples/invalid-provenance-and-reachability.json",
-    "examples/invalid-language-and-provenance.json"
+    "examples/invalid-language-and-provenance.json",
+    "examples/invalid-schema.json"
   ]
 }
