@@ -13,6 +13,7 @@
   "references": [
     {"path": "../../packages/core"},
     {"path": "../../packages/registry"},
+    {"path": "../../packages/release"},
     {"path": "../../packages/schema"},
     {"path": "../../packages/validator"}
   ],
