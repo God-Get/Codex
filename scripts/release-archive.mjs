@@ -5,6 +5,10 @@ import { lstat, readFile, readdir, writeFile } from "node:fs/promises";
 import { relative, resolve, sep } from "node:path";
 import { gunzipSync, gzipSync } from "node:zlib";
 
+function comparePaths(a, b) {
+  return a.localeCompare(b);
+}
+
 function writeOctal(buffer, offset, length, value) {
   const text = value.toString(8).padStart(length - 1, "0");
   buffer.write(`${text}\0`, offset, length, "ascii");
@@ -48,7 +52,7 @@ async function walk(root, current = root) {
     else if (entry.isFile()) files.push({ path, absolute });
     else throw new Error(`Unsupported release archive entry: ${path}`);
   }
-  return files.sort((a, b) => a.path.localeCompare(b.path));
+  return files.sort((a, b) => comparePaths(a.path, b.path));
 }
 
 async function build(sourceDirectory, outputPath) {
@@ -78,6 +82,7 @@ function parseTar(archive) {
     if (header.every((byte) => byte === 0)) break;
     const path = header.subarray(0, 100).toString("utf8").replace(/\0.*$/, "");
     if (!path || path.startsWith("/") || path.includes("../") || path.includes("\\")) throw new Error(`Unsafe archive path: ${path}`);
+    if (entries.has(path)) throw new Error(`Duplicate archive entry: ${path}`);
     const sizeText = header.subarray(124, 136).toString("ascii").replace(/\0.*$/, "").trim();
     const size = Number.parseInt(sizeText || "0", 8);
     const type = header.subarray(156, 157).toString("ascii");
@@ -92,9 +97,13 @@ function parseTar(archive) {
 async function verify(sourceDirectory, archivePath) {
   const sourceFiles = await walk(resolve(sourceDirectory));
   const entries = parseTar(await readFile(archivePath));
-  const expected = sourceFiles.map((file) => file.path);
-  const actual = [...entries.keys()].sort();
-  if (JSON.stringify(actual) !== JSON.stringify(expected)) throw new Error("Archive file list does not match package directory.");
+  const expected = sourceFiles.map((file) => file.path).sort(comparePaths);
+  const actual = [...entries.keys()].sort(comparePaths);
+  if (JSON.stringify(actual) !== JSON.stringify(expected)) {
+    const missing = expected.filter((path) => !entries.has(path));
+    const unexpected = actual.filter((path) => !expected.includes(path));
+    throw new Error(`Archive file list does not match package directory. Missing: ${missing.join(", ") || "none"}; unexpected: ${unexpected.join(", ") || "none"}.`);
+  }
   for (const file of sourceFiles) {
     const source = await readFile(file.absolute);
     const archived = entries.get(file.path);
