@@ -7,6 +7,8 @@
   "scripts": {
     "build": "tsc -b",
     "check": "tsc -b --pretty false",
+    "compile:hermetica": "node packages/importer/dist/cli.js reference/hermetica --output=.codex/hermetica.project.json --profile=hermetica",
+    "compile:hermetica:json": "node packages/importer/dist/cli.js reference/hermetica --output=.codex/hermetica.project.json --profile=hermetica --json",
     "validate": "node apps/cli/dist/index.js validate examples/minimal-project.json",
     "validate:strict": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=strict",
     "validate:hermetica": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=hermetica",
