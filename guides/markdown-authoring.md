@@ -1,6 +1,6 @@
 # Markdown authoring
 
-CODEX 0.2 includes a deterministic Markdown-to-Object-Graph compiler in `@codex/authoring`, exposed through the main `codex` CLI.
+CODEX 0.2 includes an initial deterministic Markdown-to-Object-Graph compiler in `@codex/authoring`.
 
 ## Directory layout
 
@@ -39,47 +39,85 @@ Canonical object fields are compiled directly. Additional front-matter fields ar
 
 ## Compile and validate
 
+Use the integrated CODEX CLI when the compiled graph should also be validated:
+
 ```bash
 npm run build
 node apps/cli/dist/index.js authoring compile path/to/authoring-root \
   --output=project.json
 ```
 
-The integrated command compiles the Object Graph and immediately performs structural and semantic validation. The profile is selected in this order:
+The project profile is selected from `--profile`, then `project.md`, and finally defaults to `core`.
 
-1. `--profile=id` from the command line;
-2. `profile` from `project.md`;
-3. the `core` profile.
-
-A validation failure leaves the generated JSON available for inspection but returns a failing process exit code.
-
-Machine-readable output:
-
-```bash
-node apps/cli/dist/index.js authoring compile path/to/authoring-root \
-  --output=project.json --json
-```
-
-Compile without semantic validation only when another pipeline performs validation:
-
-```bash
-node apps/cli/dist/index.js authoring compile path/to/authoring-root \
-  --output=project.json --no-validate
-```
-
-Optional path overrides:
+Useful options:
 
 ```bash
 node apps/cli/dist/index.js authoring compile . \
   --project-file=edition.md \
   --objects-directory=documents \
+  --output=project.json \
+  --json
+```
+
+Use `--no-validate` to compile without schema and semantic validation.
+
+The package-level compiler remains available for low-level workflows:
+
+```bash
+node packages/authoring/dist/cli.js path/to/authoring-root \
   --output=project.json
 ```
 
-The low-level package binary remains available:
+Its path overrides use the shorter option names:
 
 ```bash
-node packages/authoring/dist/cli.js path/to/authoring-root --output=project.json
+node packages/authoring/dist/cli.js . \
+  --project=edition.md \
+  --objects=documents \
+  --output=project.json
 ```
 
-The compiler rejects missing or unterminated front matter, malformed keys, duplicate keys, invalid relation arrays, invalid string arrays, duplicate object identifiers, and paths escaping the authoring root. CI compares the low-level package output with the integrated CLI output to enforce deterministic equivalence.
+## Diagnostics
+
+Parser and compiler failures expose a stable `AuthoringError` with an `AuthoringDiagnostic` payload:
+
+```json
+{
+  "code": "AUTH-1005",
+  "message": "duplicate key id",
+  "source": "objects/translation.md",
+  "line": 4,
+  "column": 1
+}
+```
+
+The standalone compiler emits a machine-readable failure envelope to standard error when `--json` is present:
+
+```json
+{
+  "ok": false,
+  "diagnostic": {
+    "code": "AUTH-1003",
+    "message": "expected key: value",
+    "source": "objects/broken.md",
+    "line": 2,
+    "column": 1
+  }
+}
+```
+
+Current codes:
+
+| Code | Meaning |
+| --- | --- |
+| `AUTH-1001` | Missing front matter |
+| `AUTH-1002` | Unterminated front matter |
+| `AUTH-1003` | Malformed front-matter entry |
+| `AUTH-1004` | Invalid front-matter key |
+| `AUTH-1005` | Duplicate front-matter key |
+| `AUTH-1006` | Missing or invalid required string |
+| `AUTH-1007` | Invalid string array |
+| `AUTH-1008` | Invalid relation array |
+| `AUTH-1009` | Project, path, filesystem, or duplicate-object failure |
+
+The compiler rejects missing or unterminated front matter, malformed keys, duplicate keys, invalid relation arrays, invalid string arrays, duplicate object identifiers, and paths escaping the authoring root. Semantic and profile conformance remain the responsibility of the normal CODEX validator after compilation.
