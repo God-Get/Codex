@@ -1,10 +1,11 @@
 {
   "name": "@codex/cli",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "type": "module",
   "bin": {"codex": "dist/index.js"},
   "dependencies": {
     "@codex/core": "0.1.0",
+    "@codex/profiles": "0.2.0",
     "@codex/registry": "0.1.0",
     "@codex/release": "0.1.0",
     "@codex/schema": "0.1.0",
