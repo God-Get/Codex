@@ -46,58 +46,64 @@ Body.
   return root;
 }
 
-test("standalone authoring CLI emits JSON success contract with output", async () => {
+function assertEnvelope(payload, ok) {
+  assert.equal(payload.ok, ok);
+  assert.equal(payload.apiVersion, "0.2");
+  assert.equal(payload.command, "authoring.compile");
+}
+
+test("standalone authoring CLI emits shared success envelope with output", async () => {
   const root = await validFixture();
   const output = path.join(root, "compiled.json");
-  const result = await run([root, `--output=${output}`, "--json"]);
-  assert.equal(result.code, 0, result.stderr);
-  assert.equal(result.stderr, "");
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ok, true);
-  assert.equal(payload.outputPath, output);
-  assert.equal(payload.project.id, "cli.fixture");
-  assert.equal(payload.projectId, "cli.fixture");
-  assert.equal(payload.objectCount, 1);
+  const response = await run([root, `--output=${output}`, "--json"]);
+  assert.equal(response.code, 0, response.stderr);
+  assert.equal(response.stderr, "");
+  const payload = JSON.parse(response.stdout);
+  assertEnvelope(payload, true);
+  assert.equal(payload.result.outputPath, output);
+  assert.equal(payload.result.project.id, "cli.fixture");
+  assert.equal(payload.result.projectId, "cli.fixture");
+  assert.equal(payload.result.objectCount, 1);
 });
 
-test("standalone authoring CLI preserves the JSON envelope without output", async () => {
+test("standalone authoring CLI emits shared success envelope without output", async () => {
   const root = await validFixture();
-  const result = await run([root, "--json"]);
-  assert.equal(result.code, 0, result.stderr);
-  assert.equal(result.stderr, "");
-  const payload = JSON.parse(result.stdout);
-  assert.equal(payload.ok, true);
-  assert.equal(payload.outputPath, undefined);
-  assert.equal(payload.project.id, "cli.fixture");
-  assert.equal(payload.projectId, "cli.fixture");
-  assert.equal(payload.objectCount, 1);
+  const response = await run([root, "--json"]);
+  assert.equal(response.code, 0, response.stderr);
+  assert.equal(response.stderr, "");
+  const payload = JSON.parse(response.stdout);
+  assertEnvelope(payload, true);
+  assert.equal(payload.result.outputPath, undefined);
+  assert.equal(payload.result.project.id, "cli.fixture");
+  assert.equal(payload.result.projectId, "cli.fixture");
+  assert.equal(payload.result.objectCount, 1);
 });
 
-test("standalone authoring CLI emits one JSON diagnostic on failure", async () => {
+test("standalone authoring CLI emits shared failure envelope", async () => {
   const root = await validFixture();
   await writeFile(path.join(root, "objects", "broken.md"), `---
 id: broken
 not valid
 ---
 `, "utf8");
-  const result = await run([root, "--json"]);
-  assert.equal(result.code, 1);
-  assert.equal(result.stdout, "");
-  const payload = JSON.parse(result.stderr);
-  assert.equal(payload.ok, false);
+  const response = await run([root, "--json"]);
+  assert.equal(response.code, 1);
+  assert.equal(response.stdout, "");
+  const payload = JSON.parse(response.stderr);
+  assertEnvelope(payload, false);
   assert.equal(payload.diagnostic.code, "AUTH-1003");
   assert.equal(payload.diagnostic.source, path.join("objects", "broken.md"));
   assert.equal(payload.diagnostic.line, 3);
   assert.equal(payload.diagnostic.column, 1);
-  assert.equal(result.stderr.trim().split("\n").filter((line) => line.startsWith("{")).length, 1);
+  assert.equal(response.stderr.trim().split("\n").filter((line) => line.startsWith("{")).length, 1);
 });
 
 test("standalone authoring CLI keeps human errors on stderr", async () => {
   const root = await validFixture();
   await writeFile(path.join(root, "objects", "broken.md"), "no front matter\n", "utf8");
-  const result = await run([root]);
-  assert.equal(result.code, 1);
-  assert.equal(result.stdout, "");
-  assert.match(result.stderr, /AUTH-1001/);
-  assert.match(result.stderr, /objects[\\/]broken\.md:1:1/);
+  const response = await run([root]);
+  assert.equal(response.code, 1);
+  assert.equal(response.stdout, "");
+  assert.match(response.stderr, /AUTH-1001/);
+  assert.match(response.stderr, /objects[\\/]broken\.md:1:1/);
 });
