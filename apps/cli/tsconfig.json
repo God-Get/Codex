@@ -14,6 +14,7 @@
     {"path": "../../packages/core"},
     {"path": "../../packages/importer"},
     {"path": "../../packages/profiles"},
+    {"path": "../../packages/query"},
     {"path": "../../packages/registry"},
     {"path": "../../packages/release"},
     {"path": "../../packages/schema"},
