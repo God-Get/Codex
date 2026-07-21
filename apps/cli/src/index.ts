@@ -139,11 +139,12 @@ async function authoringCommand(action: string | undefined, args: string[]): Pro
     await writeFile(outputPath, `${JSON.stringify(project, null, 2)}\n`, "utf8");
     const requestedProfile = optionValue(args, "--profile") ?? project.profile ?? "core";
     if (args.includes("--no-validate")) {
-      console.log(args.includes("--json") ? JSON.stringify({ outputPath, project }, null, 2) : `COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
+      if (args.includes("--json")) process.stdout.write(`${JSON.stringify({ ok: true, outputPath, project, projectId: project.id, objectCount: project.objects.length }, null, 2)}\n`);
+      else console.log(`COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
       return;
     }
     const { report, context } = validateValue(project, requestedProfile);
-    if (args.includes("--json")) console.log(JSON.stringify({ outputPath, profile: context.profileId, profileChain: context.chain, project, validation: report }, null, 2));
+    if (args.includes("--json")) process.stdout.write(`${JSON.stringify({ ok: true, outputPath, project, projectId: project.id, objectCount: project.objects.length, profile: context.profileId, profileChain: context.chain, validation: report }, null, 2)}\n`);
     else {
       console.log(`COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
       console.log(`PROFILE: ${context.profileId}`);
