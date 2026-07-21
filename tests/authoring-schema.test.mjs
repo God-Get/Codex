@@ -30,9 +30,16 @@ test("authoring CLI schema defines success and failure envelopes", async () => {
   assert.equal(schema.oneOf.length, 2);
 
   const [success, failure] = schema.oneOf;
-  assert.deepEqual(success.required, ["outputPath", "project"]);
+  assert.deepEqual(success.required, ["ok", "apiVersion", "command", "result"]);
   assert.equal(success.properties.ok.const, true);
-  assert.deepEqual(failure.required, ["ok", "diagnostic"]);
+  assert.equal(success.properties.apiVersion.const, "0.2");
+  assert.equal(success.properties.command.const, "authoring.compile");
+  assert.deepEqual(success.properties.result.required, ["project", "projectId", "objectCount"]);
+  assert.equal(success.properties.result.properties.outputPath.type, "string");
+
+  assert.deepEqual(failure.required, ["ok", "apiVersion", "command", "diagnostic"]);
   assert.equal(failure.properties.ok.const, false);
+  assert.equal(failure.properties.apiVersion.const, "0.2");
+  assert.equal(failure.properties.command.const, "authoring.compile");
   assert.equal(failure.properties.diagnostic.$ref, "./authoring-diagnostic.schema.json");
 });
