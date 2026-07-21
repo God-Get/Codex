@@ -7,6 +7,7 @@
     "@codex/core": "0.1.0",
     "@codex/importer": "0.2.0",
     "@codex/profiles": "0.2.0",
+    "@codex/query": "0.2.0",
     "@codex/registry": "0.1.0",
     "@codex/release": "0.1.0",
     "@codex/schema": "0.1.0",
