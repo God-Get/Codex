@@ -46,7 +46,7 @@ Body.
   return root;
 }
 
-test("standalone authoring CLI emits JSON success contract", async () => {
+test("standalone authoring CLI emits JSON success contract with output", async () => {
   const root = await validFixture();
   const output = path.join(root, "compiled.json");
   const result = await run([root, `--output=${output}`, "--json"]);
@@ -55,6 +55,20 @@ test("standalone authoring CLI emits JSON success contract", async () => {
   const payload = JSON.parse(result.stdout);
   assert.equal(payload.ok, true);
   assert.equal(payload.outputPath, output);
+  assert.equal(payload.project.id, "cli.fixture");
+  assert.equal(payload.projectId, "cli.fixture");
+  assert.equal(payload.objectCount, 1);
+});
+
+test("standalone authoring CLI preserves the JSON envelope without output", async () => {
+  const root = await validFixture();
+  const result = await run([root, "--json"]);
+  assert.equal(result.code, 0, result.stderr);
+  assert.equal(result.stderr, "");
+  const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, true);
+  assert.equal(payload.outputPath, undefined);
+  assert.equal(payload.project.id, "cli.fixture");
   assert.equal(payload.projectId, "cli.fixture");
   assert.equal(payload.objectCount, 1);
 });
