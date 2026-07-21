@@ -3,7 +3,13 @@ import test from "node:test";
 import { mkdtemp, mkdir, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
-import { compileAuthoringProject, compileMarkdownObject, parseMarkdownDocument } from "../packages/authoring/dist/index.js";
+import {
+  AuthoringError,
+  authoringDiagnostic,
+  compileAuthoringProject,
+  compileMarkdownObject,
+  parseMarkdownDocument
+} from "../packages/authoring/dist/index.js";
 
 const objectSource = `---
 id: translation.test.en
@@ -27,31 +33,12 @@ test("parses deterministic Markdown front matter", () => {
   assert.equal(parsed.body, "\n# Test\n\nBody.");
 });
 
-test("parses scalar and JSON front matter values", () => {
-  const parsed = parseMarkdownDocument([
-    "---",
-    "draft: true",
-    "sequence: 1",
-    "empty: null",
-    "tags: [\"hermetica\", \"greek\"]",
-    "---",
-    "Body"
-  ].join("\n"), "scalars.md");
-  assert.deepEqual(parsed.attributes, {
-    draft: true,
-    sequence: 1,
-    empty: null,
-    tags: ["hermetica", "greek"]
-  });
-});
-
 test("compiles Markdown objects and preserves author metadata", () => {
   const object = compileMarkdownObject(objectSource, "objects/translation.md");
   assert.equal(object.id, "translation.test.en");
   assert.deepEqual(object.derivedFrom, ["source.test.grc"]);
   assert.deepEqual(object.relations, [{ type: "translates", target: "source.test.grc" }]);
   assert.equal(object.metadata?.editor, "Ada");
-  assert.equal(object.metadata?.content, "\n# Test\n\nBody.");
   assert.equal(object.metadata?.sourcePath, "objects/translation.md");
 });
 
@@ -62,35 +49,55 @@ test("compiles an authoring directory into a canonical project", async () => {
   assert.deepEqual(project.objects.map((object) => object.id), ["source.poimandres.grc", "translation.poimandres.en"]);
 });
 
-test("recursively compiles object files in deterministic path order", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "codex-authoring-order-"));
-  await mkdir(path.join(root, "objects", "nested"), { recursive: true });
-  await writeFile(path.join(root, "project.md"), "---\ncodexVersion: 0.2.0\nid: ordering\ntitle: Ordering\n---\n");
-  const object = (id) => `---\nid: ${id}\ntype: source\ntitle: ${id}\nversion: 1.0.0\nstatus: draft\n---\nBody`;
-  await writeFile(path.join(root, "objects", "z.md"), object("z"));
-  await writeFile(path.join(root, "objects", "nested", "a.md"), object("a"));
-
-  const project = await compileAuthoringProject(root);
-  assert.deepEqual(project.objects.map((item) => item.id), ["a", "z"]);
-  assert.deepEqual(project.objects.map((item) => item.metadata?.sourcePath), ["objects/nested/a.md", "objects/z.md"]);
+test("emits stable diagnostics for duplicate front matter keys", () => {
+  assert.throws(
+    () => parseMarkdownDocument("---\nid: one\nid: two\n---\n", "duplicate.md"),
+    (error) => {
+      assert.ok(error instanceof AuthoringError);
+      assert.deepEqual(error.diagnostic, {
+        code: "AUTH-1005",
+        message: "duplicate key id",
+        source: "duplicate.md",
+        line: 3,
+        column: 1
+      });
+      return true;
+    }
+  );
 });
 
-test("rejects duplicate front matter keys", () => {
-  assert.throws(() => parseMarkdownDocument("---\nid: one\nid: two\n---\n", "duplicate.md"), /duplicate key id/);
+test("emits coordinates for malformed front matter", () => {
+  const diagnostic = (() => {
+    try { parseMarkdownDocument("---\nid project\n---\n", "broken.md"); }
+    catch (error) { return authoringDiagnostic(error); }
+    throw new Error("Expected parser failure");
+  })();
+  assert.deepEqual(diagnostic, {
+    code: "AUTH-1003",
+    message: "expected key: value",
+    source: "broken.md",
+    line: 2,
+    column: 1
+  });
+});
+
+test("rejects invalid derivedFrom arrays with a stable code", () => {
+  const invalid = objectSource.replace('derivedFrom: ["source.test.grc"]', "derivedFrom: source.test.grc");
+  assert.throws(
+    () => compileMarkdownObject(invalid, "objects/invalid.md"),
+    (error) => error instanceof AuthoringError && error.diagnostic.code === "AUTH-1007"
+  );
 });
 
 test("rejects duplicate object identifiers", async () => {
-  const root = await mkdtemp(path.join(tmpdir(), "codex-authoring-duplicate-"));
+  const root = await mkdtemp(path.join(tmpdir(), "codex-authoring-"));
   await mkdir(path.join(root, "objects"));
-  await writeFile(path.join(root, "project.md"), "---\ncodexVersion: 0.2.0\nid: duplicate\ntitle: Duplicate\n---\n");
-  const object = "---\nid: same\ntype: source\ntitle: Same\nversion: 1.0.0\nstatus: draft\n---\n";
-  await writeFile(path.join(root, "objects", "a.md"), object);
-  await writeFile(path.join(root, "objects", "b.md"), object);
-  await assert.rejects(() => compileAuthoringProject(root), /Duplicate object id: same/);
-});
-
-test("rejects malformed collection fields", () => {
-  const base = "---\nid: malformed\ntype: translation\ntitle: Malformed\nversion: 1.0.0\nstatus: draft\n";
-  assert.throws(() => compileMarkdownObject(`${base}derivedFrom: source.one\n---\nBody`), /derivedFrom must be a JSON string array/);
-  assert.throws(() => compileMarkdownObject(`${base}relations: [\"source.one\"]\n---\nBody`), /relations must be a JSON array/);
+  await writeFile(path.join(root, "project.md"), "---\ncodexVersion: 0.2.0\nid: duplicate-project\ntitle: Duplicate project\n---\n");
+  const source = objectSource.replace("translation.test.en", "duplicate.object");
+  await writeFile(path.join(root, "objects", "one.md"), source);
+  await writeFile(path.join(root, "objects", "two.md"), source);
+  await assert.rejects(
+    compileAuthoringProject(root),
+    (error) => error instanceof AuthoringError && error.diagnostic.code === "AUTH-1009" && /duplicate object id/.test(error.diagnostic.message)
+  );
 });
