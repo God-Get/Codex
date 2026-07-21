@@ -8,6 +8,9 @@
     {"path": "packages/release"},
     {"path": "packages/profiles"},
     {"path": "packages/authoring"},
+    {"path": "packages/graph"},
+    {"path": "packages/query"},
+    {"path": "packages/importer"},
     {"path": "apps/cli"}
   ]
 }
