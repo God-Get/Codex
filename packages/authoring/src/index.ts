@@ -36,7 +36,7 @@ export class AuthoringError extends Error {
 
 export function authoringDiagnostic(error: unknown): AuthoringDiagnostic {
   return error instanceof AuthoringError
-    ? error.diagnostic
+    ? { ...error.diagnostic, message: error.message }
     : { code: "AUTH-1009", message: error instanceof Error ? error.message : String(error) };
 }
 
