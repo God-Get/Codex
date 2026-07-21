@@ -57,7 +57,11 @@ export async function compileProject(root: string, options: CompileOptions = {})
     objects
   };
   const graph = buildGraph(project);
-  if (options.output) await fs.writeFile(options.output, `${JSON.stringify(project, null, 2)}\n`, "utf8");
+  if (options.output) {
+    const outputPath = path.resolve(options.output);
+    await fs.mkdir(path.dirname(outputPath), { recursive: true });
+    await fs.writeFile(outputPath, `${JSON.stringify(project, null, 2)}\n`, "utf8");
+  }
   return { project, graph, files: files.map(file => path.relative(root, file)) };
 }
 
