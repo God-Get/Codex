@@ -29,7 +29,11 @@ test("release archives are deterministic and verifiable", async () => {
   const first = path.join(root, "first.tgz");
   const second = path.join(root, "second.tgz");
   await mkdir(path.join(source, "nested"), { recursive: true });
+  await mkdir(path.join(source, "Schemas"), { recursive: true });
+  await writeFile(path.join(source, "CHECKSUMS.sha256"), "fixture  README.md\n", "utf8");
   await writeFile(path.join(source, "manifest.json"), "{\"version\":\"0.2.0\"}\n", "utf8");
+  await writeFile(path.join(source, "README.md"), "# Package\n", "utf8");
+  await writeFile(path.join(source, "Schemas", "project.json"), "{}\n", "utf8");
   await writeFile(path.join(source, "nested", "fixture.md"), "# Fixture\n", "utf8");
 
   const buildFirst = await run(["build", source, first]);
