@@ -2,6 +2,7 @@
 
 import { access, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
+import { compileAuthoringProject } from "@codex/authoring";
 import type { CodexProject, Diagnostic, ValidationProfile, ValidationReport } from "@codex/core";
 import { listProfiles, loadProfile, resolveProfile } from "@codex/profiles";
 import { isRegisteredValidationProfile, loadRegistry, type RegistryData } from "@codex/registry";
@@ -65,6 +66,14 @@ function resolveValidationContext(profileId: string): { registry: RegistryData; 
   const resolved = resolveProfile(profileId);
   return { registry: resolved.registry, semanticProfile: "core", profileId, chain: resolved.chain };
 }
+function validateValue(value: unknown, requestedProfile: string): { report: ValidationReport; context: ReturnType<typeof resolveValidationContext> } {
+  const schemaDiagnostics = validateProjectSchema(value);
+  const context = resolveValidationContext(requestedProfile);
+  const semanticDiagnostics = schemaDiagnostics.length === 0
+    ? validateProject(value as CodexProject, { registry: context.registry, profile: context.semanticProfile }).diagnostics
+    : [];
+  return { report: mergedReport([...schemaDiagnostics, ...semanticDiagnostics]), context };
+}
 function reportToSarif(report: ValidationReport, filePath: string, registry: RegistryData): object {
   const titles = new Map(registry.diagnostics.map((item) => [item.code, item.title]));
   const rules = [...new Set(report.diagnostics.map((item) => item.code))].map((code) => ({
@@ -89,19 +98,15 @@ function reportToSarif(report: ValidationReport, filePath: string, registry: Reg
 async function validateCommand(filePath: string, args: string[]): Promise<void> {
   const value = await loadJson(filePath);
   if (value === undefined) return;
-  const schemaDiagnostics = validateProjectSchema(value);
   const requestedProfile = optionValue(args, "--profile") ?? "core";
-  let context;
-  try { context = resolveValidationContext(requestedProfile); }
+  let result;
+  try { result = validateValue(value, requestedProfile); }
   catch (error) {
     console.error(`Profile resolution failed: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 2;
     return;
   }
-  const semanticDiagnostics = schemaDiagnostics.length === 0
-    ? validateProject(value as CodexProject, { registry: context.registry, profile: context.semanticProfile }).diagnostics
-    : [];
-  const report = mergedReport([...schemaDiagnostics, ...semanticDiagnostics]);
+  const { report, context } = result;
   const outputPath = optionValue(args, "--output");
   const output = args.includes("--sarif")
     ? `${JSON.stringify(reportToSarif(report, filePath, context.registry), null, 2)}\n`
@@ -117,6 +122,39 @@ async function validateCommand(filePath: string, args: string[]): Promise<void> 
     console.log(report.valid ? "PASS: project conforms to CODEX checks." : "FAIL: project does not conform to CODEX checks.");
   }
   if (!report.valid) process.exitCode = 1;
+}
+async function authoringCommand(action: string | undefined, args: string[]): Promise<void> {
+  const root = positionalValue(args);
+  if (action !== "compile" || !root) {
+    console.error("Usage: codex authoring compile <directory> [--output=project.json] [--profile=id] [--no-validate] [--json]");
+    process.exitCode = 2;
+    return;
+  }
+  try {
+    const project = await compileAuthoringProject(root, {
+      projectFile: optionValue(args, "--project-file"),
+      objectsDirectory: optionValue(args, "--objects-directory")
+    });
+    const outputPath = optionValue(args, "--output") ?? `${root.replace(/[\\/]$/, "")}/project.json`;
+    await writeFile(outputPath, `${JSON.stringify(project, null, 2)}\n`, "utf8");
+    const requestedProfile = optionValue(args, "--profile") ?? project.profile ?? "core";
+    if (args.includes("--no-validate")) {
+      console.log(args.includes("--json") ? JSON.stringify({ outputPath, project }, null, 2) : `COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
+      return;
+    }
+    const { report, context } = validateValue(project, requestedProfile);
+    if (args.includes("--json")) console.log(JSON.stringify({ outputPath, profile: context.profileId, profileChain: context.chain, project, validation: report }, null, 2));
+    else {
+      console.log(`COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
+      console.log(`PROFILE: ${context.profileId}`);
+      printHumanReport(report);
+      console.log(report.valid ? "PASS: compiled project conforms to CODEX checks." : "FAIL: compiled project does not conform to CODEX checks.");
+    }
+    if (!report.valid) process.exitCode = 1;
+  } catch (error) {
+    console.error(`Authoring operation failed: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
+  }
 }
 async function profilesCommand(action: string | undefined, args: string[]): Promise<void> {
   try {
@@ -194,7 +232,7 @@ function diagnosticsCommand(args: string[]): void {
   console.log(`TOTAL: ${diagnostics.length}`);
 }
 async function releaseCommand(action: string | undefined, args: string[]): Promise<void> {
-  const manifestPath = positionalValue(args) ?? "releases/0.1.0/manifest.json";
+  const manifestPath = positionalValue(args) ?? "releases/0.2.0/manifest.json";
   try {
     if (action === "prepare") {
       const outputPath = optionValue(args, "--output") ?? manifestPath;
@@ -229,7 +267,7 @@ async function releaseCommand(action: string | undefined, args: string[]): Promi
   console.error("Usage: codex release prepare|verify|keygen|sign|signature-verify ..."); process.exitCode = 2;
 }
 async function packageCommand(action: string | undefined, args: string[]): Promise<void> {
-  const input = positionalValue(args) ?? (action === "build" ? "releases/0.1.0/manifest.json" : "codex-package");
+  const input = positionalValue(args) ?? (action === "build" ? "releases/0.2.0/manifest.json" : "codex-package");
   try {
     if (action === "build") { const result = await buildReleasePackage(input, optionValue(args, "--output") ?? "codex-package"); console.log(args.includes("--json") ? JSON.stringify(result, null, 2) : `BUILT: ${result.releaseId} ${result.version} — ${result.fileCount} files -> ${result.outputDirectory}`); return; }
     if (action === "verify") { const report = await verifyReleasePackage(input); console.log(args.includes("--json") ? JSON.stringify(report, null, 2) : `${report.valid ? "PASS" : "FAIL"}: package ${report.releaseId} ${report.version}`); if (!report.valid) process.exitCode = 1; return; }
@@ -246,7 +284,7 @@ async function doctorCommand(): Promise<void> {
     "specs/core/README.md", "specs/core/rules.json", "profiles/core/profile.json",
     "profiles/scholarly-edition/profile.json", "profiles/hermetica/profile.json",
     "registry/object-types.json", "registry/relation-types.json", "registry/diagnostic-codes.json",
-    "releases/0.1.0/manifest.json"
+    "packages/authoring/package.json", "examples/authoring/project.md", "releases/0.2.0/manifest.json"
   ];
   for (const file of requiredFiles) {
     try { await access(file); checks.push({ name: file, ok: true, detail: "present" }); }
@@ -263,6 +301,7 @@ async function doctorCommand(): Promise<void> {
 async function main(): Promise<void> {
   const [, , command, argument, ...args] = process.argv;
   if (command === "validate" && argument) return validateCommand(argument, args);
+  if (command === "authoring") return authoringCommand(argument, args);
   if (command === "profiles") return profilesCommand(argument, args);
   if (command === "inspect" && argument) return inspectCommand(argument, args.includes("--json"));
   if (command === "graph" && argument) return graphCommand(argument, args);
@@ -270,7 +309,7 @@ async function main(): Promise<void> {
   if (command === "release") return releaseCommand(argument, args);
   if (command === "package") return packageCommand(argument, args);
   if (command === "doctor") return doctorCommand();
-  console.error("Usage:\n  codex validate <project.json> [--profile=id] [--json|--sarif]\n  codex profiles list|inspect|validate ...\n  codex inspect|graph|diagnostics ...\n  codex release ...\n  codex package ...\n  codex doctor");
+  console.error("Usage:\n  codex validate <project.json> [--profile=id] [--json|--sarif]\n  codex authoring compile <directory> [--output=project.json] [--profile=id] [--no-validate] [--json]\n  codex profiles list|inspect|validate ...\n  codex inspect|graph|diagnostics ...\n  codex release ...\n  codex package ...\n  codex doctor");
   process.exitCode = 2;
 }
 void main();
