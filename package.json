@@ -42,6 +42,8 @@
     "package:verify": "node apps/cli/dist/index.js package verify codex-package-0.2.0",
     "package:verify:json": "node apps/cli/dist/index.js package verify codex-package-0.2.0 --json",
     "package:unpack": "node apps/cli/dist/index.js package unpack codex-package-0.2.0 --output=codex-unpacked-0.2.0",
+    "package:archive": "node scripts/release-archive.mjs build codex-package-0.2.0 codex-package-0.2.0.tgz",
+    "package:archive-verify": "node scripts/release-archive.mjs verify codex-package-0.2.0 codex-package-0.2.0.tgz",
     "doctor": "node apps/cli/dist/index.js doctor",
     "test": "npm run build && node --test --test-reporter=spec tests/*.test.mjs"
   },
