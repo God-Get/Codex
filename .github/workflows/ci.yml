@@ -21,6 +21,13 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run doctor
+      - run: npm run authoring:compile
+      - run: test -s examples/authoring/project.json
+      - run: npm run authoring:compile:json > .codex-ci/authoring.json
+      - run: test -s .codex-ci/authoring.json
+      - run: npm run authoring:compile:raw
+      - run: cmp examples/authoring/project.json examples/authoring/project.raw.json
+      - run: node apps/cli/dist/index.js validate examples/authoring/project.json --profile=hermetica
       - run: npm run profiles:list
       - run: npm run profiles:inspect
       - run: npm run profiles:validate
@@ -68,4 +75,5 @@ jobs:
             codex-package-0.2.0.tgz
             .codex-ci/manifest.sig.json
             .codex-ci/public.pem
+            .codex-ci/authoring.json
           if-no-files-found: error
