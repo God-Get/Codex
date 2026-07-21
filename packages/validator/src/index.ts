@@ -206,10 +206,10 @@ export function validateProject(project: CodexProject, options: ValidationOption
         continue;
       }
       const constraint = registry.relationConstraints[relation.type];
-      if (constraint && !constraint.sources.includes(object.type)) push(diagnostics, { code: "ERR-1203", severity: "error", message: `Object type ${object.type} cannot use relation ${relation.type}.`, objectId: object.id, path: `${relationPath}.type` });
+      if (constraint && constraint.sources.length > 0 && !constraint.sources.includes(object.type)) push(diagnostics, { code: "ERR-1203", severity: "error", message: `Object type ${object.type} cannot use relation ${relation.type}.`, objectId: object.id, path: `${relationPath}.type` });
       const target = objectsById.get(relation.target);
-      if (target && constraint && !constraint.targets.includes(target.type)) push(diagnostics, { code: "ERR-1204", severity: "error", message: `Relation ${relation.type} cannot target object type ${target.type}.`, objectId: object.id, path: `${relationPath}.target` });
-      if (relation.target === object.id && relation.type !== "relatedTo") push(diagnostics, { code: "ERR-1205", severity: "error", message: `Self-reference is not allowed for relation ${relation.type}.`, objectId: object.id, path: `${relationPath}.target` });
+      if (target && constraint && constraint.targets.length > 0 && !constraint.targets.includes(target.type)) push(diagnostics, { code: "ERR-1204", severity: "error", message: `Relation ${relation.type} cannot target object type ${target.type}.`, objectId: object.id, path: `${relationPath}.target` });
+      if (relation.target === object.id && (constraint?.disallowSelfReference ?? relation.type !== "relatedTo")) push(diagnostics, { code: "ERR-1205", severity: "error", message: `Self-reference is not allowed for relation ${relation.type}.`, objectId: object.id, path: `${relationPath}.target` });
     }
   }
 
