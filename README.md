@@ -154,6 +154,8 @@ The package contains the sealed manifest, `CHECKSUMS.sha256`, a package descript
 - final publication checklist: `releases/0.2.0/RELEASE-CHECKLIST.md`;
 - changes: `CHANGELOG.md`.
 
+The codebase and conformance assets are complete. The manifest intentionally remains `draft` until a green workflow run produces the prepared checksums, detached signature, public key, and portable release archive.
+
 ## Repository structure
 
 ```text
