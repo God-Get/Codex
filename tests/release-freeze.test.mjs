@@ -41,6 +41,6 @@ test("release checklist distinguishes implementation from publication", async ()
   const checklist = await readFile("releases/0.2.0/RELEASE-CHECKLIST.md", "utf8");
   assert.match(checklist, /\[x\] Importer is implemented/);
   assert.match(checklist, /\[x\] Query engine is implemented/);
-  assert.match(checklist, /\[ \] Required GitHub Actions run is green/);
+  assert.match(checklist, /\[x\] Required GitHub Actions run is green/);
   assert.match(checklist, /Publication is complete only after/);
 });

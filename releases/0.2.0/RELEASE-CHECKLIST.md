@@ -37,10 +37,10 @@
 
 ## Publication gate
 
-- [ ] Required GitHub Actions run is green for the release commit.
-- [ ] Prepared manifest checksums are generated from the release commit.
-- [ ] Detached Ed25519 signature and public key are attached to the release.
-- [ ] Portable `codex-package-0.2.0.tgz` artifact is attached.
-- [ ] Manifest status is changed from `draft` to `released` and `releasedAt` is set.
+- [x] Required GitHub Actions run is green for the release commit.
+- [x] Prepared manifest checksums are generated from the release commit.
+- [x] Detached Ed25519 signature and public key are attached to the release.
+- [x] Portable `codex-package-0.2.0.tgz` artifact is attached.
+- [x] Manifest status is changed from `draft` to `released` and `releasedAt` is set.
 
 The implementation is complete when all specification, implementation, conformance, and release-candidate verification boxes are checked. Publication is complete only after the external GitHub release gates are checked.

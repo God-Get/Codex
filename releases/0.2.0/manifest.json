@@ -4,8 +4,8 @@
   "id": "RELEASE-0002",
   "name": "CODEX 0.2.0",
   "version": "0.2.0",
-  "status": "draft",
-  "releasedAt": null,
+  "status": "released",
+  "releasedAt": "2026-07-21T21:06:41Z",
   "components": {
     "core": "0.2.0",
     "profiles": "0.2.0",
