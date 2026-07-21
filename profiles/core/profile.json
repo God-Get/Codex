@@ -1,0 +1,16 @@
+{
+  "$schema": "../../schemas/profile.schema.json",
+  "id": "core",
+  "name": "CODEX Core",
+  "version": "0.2.0",
+  "codexVersion": ">=0.2.0 <0.3.0",
+  "description": "Normative minimum conformance profile.",
+  "inherits": [],
+  "extensions": {
+    "objectTypes": [],
+    "relationTypes": [],
+    "languages": [],
+    "diagnostics": [],
+    "relationConstraints": {}
+  }
+}
