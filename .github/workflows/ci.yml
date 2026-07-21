@@ -29,6 +29,9 @@ jobs:
           name: codex-test-results
           path: test-results.log
           if-no-files-found: error
+      - run: npm run compile:hermetica
+      - run: test -s .codex/hermetica.project.json
+      - run: node -e "const p=require('./.codex/hermetica.project.json'); if(p.profile!=='hermetica'||p.objects.length<3) process.exit(1)"
       - run: npm run doctor
       - run: npm run profiles:list
       - run: npm run profiles:inspect
