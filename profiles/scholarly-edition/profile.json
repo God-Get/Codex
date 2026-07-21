@@ -1,0 +1,23 @@
+{
+  "$schema": "../../schemas/profile.schema.json",
+  "id": "scholarly-edition",
+  "name": "Scholarly Edition",
+  "version": "0.2.0",
+  "codexVersion": ">=0.2.0 <0.3.0",
+  "description": "General profile for source-based critical and documentary editions.",
+  "inherits": ["core"],
+  "extensions": {
+    "objectTypes": ["manuscript", "witness", "reading", "variant", "lemma", "criticalNote", "bibliography"],
+    "relationTypes": ["attests", "collates", "emends", "commentsOn"],
+    "languages": [],
+    "diagnostics": [
+      {"code":"SCHOL-1001","severity":"warning","title":"Witness without source provenance"}
+    ],
+    "relationConstraints": {
+      "attests": {"sources":["witness","manuscript"],"targets":["reading","variant","fragment"]},
+      "collates": {"sources":["criticalNote","edition"],"targets":["witness","manuscript"]},
+      "emends": {"sources":["reading","criticalNote"],"targets":["reading","lemma","fragment"]},
+      "commentsOn": {"sources":["commentary","criticalNote"],"targets":["work","section","fragment","reading","variant","term"]}
+    }
+  }
+}
