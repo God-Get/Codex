@@ -6,7 +6,12 @@ import type { CodexProject, Diagnostic, ValidationProfile, ValidationReport } fr
 import { isRegisteredValidationProfile, loadRegistry } from "@codex/registry";
 import {
   buildReleasePackage,
+  signReleaseManifest,
+  unpackReleasePackage,
   verifyReleaseManifest,
+  verifyReleaseManifestSignature,
+  verifyReleasePackage,
+  writeEd25519KeyPair,
   writePreparedReleaseManifest
 } from "@codex/release";
 import { validateProjectSchema } from "@codex/schema";
@@ -61,8 +66,7 @@ async function loadProject(filePath: string): Promise<CodexProject | undefined> 
 }
 
 function reportToSarif(report: ValidationReport, filePath: string): object {
-  const registry = loadRegistry();
-  const titles = new Map(registry.diagnostics.map((item) => [item.code, item.title]));
+  const titles = new Map(loadRegistry().diagnostics.map((item) => [item.code, item.title]));
   const rules = [...new Set(report.diagnostics.map((item) => item.code))].map((code) => ({
     id: code,
     shortDescription: { text: titles.get(code) ?? code },
@@ -89,7 +93,6 @@ async function validateCommand(filePath: string, args: string[]): Promise<void> 
   const schemaDiagnostics = validateProjectSchema(value);
   let semanticDiagnostics: Diagnostic[] = [];
   let profile: ValidationProfile = "core";
-
   if (schemaDiagnostics.length === 0) {
     const registry = loadRegistry();
     const profileValue = optionValue(args, "--profile") ?? "core";
@@ -101,22 +104,16 @@ async function validateCommand(filePath: string, args: string[]): Promise<void> 
     profile = profileValue as ValidationProfile;
     semanticDiagnostics = validateProject(value as CodexProject, { registry, profile }).diagnostics;
   }
-
   const report = mergedReport([...schemaDiagnostics, ...semanticDiagnostics]);
   const outputPath = optionValue(args, "--output");
-  const sarif = args.includes("--sarif");
-  const output = sarif
+  const output = args.includes("--sarif")
     ? `${JSON.stringify(reportToSarif(report, filePath), null, 2)}\n`
-    : args.includes("--json")
-      ? `${JSON.stringify({ profile, ...report }, null, 2)}\n`
-      : undefined;
-
+    : args.includes("--json") ? `${JSON.stringify({ profile, ...report }, null, 2)}\n` : undefined;
   if (outputPath && output) {
     await writeFile(outputPath, output, "utf8");
     console.log(`WROTE: ${outputPath}`);
-  } else if (output) {
-    process.stdout.write(output);
-  } else {
+  } else if (output) process.stdout.write(output);
+  else {
     console.log(`PROFILE: ${profile}`);
     printHumanReport(report);
     console.log(report.valid ? "PASS: project conforms to the current CODEX MVP checks." : "FAIL: project does not conform to the current CODEX MVP checks.");
@@ -146,15 +143,15 @@ async function graphCommand(filePath: string, args: string[]): Promise<void> {
   if (!project) return;
   const format = optionValue(args, "--format") ?? "json";
   const relationFilter = optionValue(args, "--relations")?.split(",").map((value) => value.trim()).filter(Boolean);
-  const outputPath = optionValue(args, "--output");
   const graph = buildProjectGraph(project);
-  const filteredGraph = relationFilter?.length ? { ...graph, edges: graph.edges.filter((edge) => relationFilter.includes(edge.type)) } : graph;
-  const output = format === "json" ? `${JSON.stringify(filteredGraph, null, 2)}\n` : format === "dot" ? graphToDot(filteredGraph) : undefined;
+  const filtered = relationFilter?.length ? { ...graph, edges: graph.edges.filter((edge) => relationFilter.includes(edge.type)) } : graph;
+  const output = format === "json" ? `${JSON.stringify(filtered, null, 2)}\n` : format === "dot" ? graphToDot(filtered) : undefined;
   if (!output) {
     console.error(`Unknown graph format: ${format}. Supported formats: json, dot`);
     process.exitCode = 2;
     return;
   }
+  const outputPath = optionValue(args, "--output");
   if (outputPath) {
     await writeFile(outputPath, output, "utf8");
     console.log(`WROTE: ${outputPath}`);
@@ -176,21 +173,41 @@ async function releaseCommand(action: string | undefined, args: string[]): Promi
     if (action === "prepare") {
       const outputPath = optionValue(args, "--output") ?? manifestPath;
       const manifest = await writePreparedReleaseManifest(manifestPath, outputPath);
-      if (args.includes("--json")) console.log(JSON.stringify(manifest, null, 2));
-      else console.log(`PREPARED: ${manifest.id} ${manifest.version} -> ${outputPath}`);
+      console.log(args.includes("--json") ? JSON.stringify(manifest, null, 2) : `PREPARED: ${manifest.id} ${manifest.version} -> ${outputPath}`);
       return;
     }
-
     if (action === "verify") {
       const report = await verifyReleaseManifest(manifestPath);
       if (args.includes("--json")) console.log(JSON.stringify(report, null, 2));
       else {
-        for (const item of report.items) {
-          console.log(`${item.ok ? "PASS" : "FAIL"}: ${item.path}${item.reason ? ` — ${item.reason}` : ""}`);
-        }
+        for (const item of report.items) console.log(`${item.ok ? "PASS" : "FAIL"}: ${item.path}${item.reason ? ` — ${item.reason}` : ""}`);
         console.log(`${report.valid ? "PASS" : "FAIL"}: release ${report.releaseId} ${report.version}`);
       }
       if (!report.valid) process.exitCode = 1;
+      return;
+    }
+    if (action === "keygen") {
+      const privateKey = optionValue(args, "--private-key") ?? "codex-private.pem";
+      const publicKey = optionValue(args, "--public-key") ?? "codex-public.pem";
+      const keyId = await writeEd25519KeyPair(privateKey, publicKey);
+      console.log(`GENERATED: ${keyId} -> ${privateKey}, ${publicKey}`);
+      return;
+    }
+    if (action === "sign") {
+      const privateKey = optionValue(args, "--private-key");
+      const output = optionValue(args, "--output") ?? `${manifestPath}.sig.json`;
+      if (!privateKey) throw new Error("--private-key is required");
+      const signature = await signReleaseManifest(manifestPath, privateKey, output);
+      console.log(args.includes("--json") ? JSON.stringify(signature, null, 2) : `SIGNED: ${manifestPath} -> ${output} (${signature.keyId})`);
+      return;
+    }
+    if (action === "signature-verify") {
+      const signature = optionValue(args, "--signature");
+      const publicKey = optionValue(args, "--public-key");
+      if (!signature || !publicKey) throw new Error("--signature and --public-key are required");
+      const valid = await verifyReleaseManifestSignature(manifestPath, signature, publicKey);
+      console.log(`${valid ? "PASS" : "FAIL"}: manifest signature`);
+      if (!valid) process.exitCode = 1;
       return;
     }
   } catch (error) {
@@ -198,28 +215,36 @@ async function releaseCommand(action: string | undefined, args: string[]): Promi
     process.exitCode = 1;
     return;
   }
-
-  console.error("Usage:\n  codex release prepare [manifest.json] [--output=file] [--json]\n  codex release verify [manifest.json] [--json]");
+  console.error("Usage:\n  codex release prepare|verify [manifest.json] [options]\n  codex release keygen [--private-key=file] [--public-key=file]\n  codex release sign [manifest.json] --private-key=file [--output=file]\n  codex release signature-verify [manifest.json] --signature=file --public-key=file");
   process.exitCode = 2;
 }
 
 async function packageCommand(action: string | undefined, args: string[]): Promise<void> {
-  if (action !== "build") {
-    console.error("Usage:\n  codex package build [manifest.json] [--output=directory] [--json]");
-    process.exitCode = 2;
+  const input = positionalValue(args) ?? (action === "build" ? "releases/0.1.0/manifest.json" : "codex-package");
+  try {
+    if (action === "build") {
+      const result = await buildReleasePackage(input, optionValue(args, "--output") ?? "codex-package");
+      console.log(args.includes("--json") ? JSON.stringify(result, null, 2) : `BUILT: ${result.releaseId} ${result.version} — ${result.fileCount} files -> ${result.outputDirectory}`);
+      return;
+    }
+    if (action === "verify") {
+      const report = await verifyReleasePackage(input);
+      console.log(args.includes("--json") ? JSON.stringify(report, null, 2) : `${report.valid ? "PASS" : "FAIL"}: package ${report.releaseId} ${report.version}`);
+      if (!report.valid) process.exitCode = 1;
+      return;
+    }
+    if (action === "unpack") {
+      const result = await unpackReleasePackage(input, optionValue(args, "--output") ?? "codex-unpacked");
+      console.log(args.includes("--json") ? JSON.stringify(result, null, 2) : `UNPACKED: ${result.releaseId} ${result.version} — ${result.fileCount} files -> ${result.outputDirectory}`);
+      return;
+    }
+  } catch (error) {
+    console.error(`Package operation failed: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 1;
     return;
   }
-
-  const manifestPath = positionalValue(args) ?? "releases/0.1.0/manifest.json";
-  const outputDirectory = optionValue(args, "--output") ?? "codex-package";
-  try {
-    const result = await buildReleasePackage(manifestPath, outputDirectory);
-    if (args.includes("--json")) console.log(JSON.stringify(result, null, 2));
-    else console.log(`BUILT: ${result.releaseId} ${result.version} — ${result.fileCount} files -> ${result.outputDirectory}`);
-  } catch (error) {
-    console.error(`Package build failed: ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = 1;
-  }
+  console.error("Usage:\n  codex package build [manifest.json] [--output=directory] [--json]\n  codex package verify [package-directory] [--json]\n  codex package unpack [package-directory] [--output=directory] [--json]");
+  process.exitCode = 2;
 }
 
 async function doctorCommand(): Promise<void> {
@@ -228,10 +253,10 @@ async function doctorCommand(): Promise<void> {
   checks.push({ name: "Node.js", ok: nodeMajor >= 22, detail: `detected ${process.versions.node}; required >= 22` });
   const requiredFiles = [
     "package.json", "tsconfig.json", "schemas/project.schema.json", "schemas/registry-list.schema.json",
-    "schemas/relation-constraints.schema.json", "schemas/diagnostic-codes.schema.json", "examples/minimal-project.json",
-    "registry/object-types.json", "registry/relation-types.json", "registry/lifecycle-statuses.json",
-    "registry/validation-profiles.json", "registry/languages.json", "registry/relation-constraints.json",
-    "registry/diagnostic-codes.json", "releases/0.1.0/manifest.json"
+    "schemas/relation-constraints.schema.json", "schemas/diagnostic-codes.schema.json", "schemas/release-manifest.schema.json",
+    "examples/minimal-project.json", "registry/object-types.json", "registry/relation-types.json",
+    "registry/lifecycle-statuses.json", "registry/validation-profiles.json", "registry/languages.json",
+    "registry/relation-constraints.json", "registry/diagnostic-codes.json", "releases/0.1.0/manifest.json"
   ];
   for (const file of requiredFiles) {
     try { await access(file); checks.push({ name: file, ok: true, detail: "present" }); }
@@ -257,7 +282,7 @@ async function main(): Promise<void> {
   if (command === "release") return releaseCommand(argument, args);
   if (command === "package") return packageCommand(argument, args);
   if (command === "doctor") return doctorCommand();
-  console.error("Usage:\n  codex validate <project.json> [--json|--sarif] [--profile=core|strict] [--output=file]\n  codex inspect <project.json> [--json]\n  codex graph <project.json> [--format=json|dot] [--relations=contains,derivedFrom] [--output=file]\n  codex diagnostics [--json] [--severity=error|warning|info]\n  codex release prepare|verify [manifest.json] [--output=file] [--json]\n  codex package build [manifest.json] [--output=directory] [--json]\n  codex doctor");
+  console.error("Usage:\n  codex validate|inspect|graph|diagnostics ...\n  codex release prepare|verify|keygen|sign|signature-verify ...\n  codex package build|verify|unpack ...\n  codex doctor");
   process.exitCode = 2;
 }
 
