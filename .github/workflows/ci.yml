@@ -9,6 +9,18 @@ permissions:
   security-events: write
 
 jobs:
+  windows-build-test:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          package-manager-cache: false
+      - run: npm install
+      - run: npm run check
+      - run: npm test
+
   build-test-validate:
     runs-on: ubuntu-latest
     steps:
