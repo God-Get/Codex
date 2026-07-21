@@ -26,6 +26,15 @@
 - [x] CI exercises authoring, importing, querying, validation, signing, packaging, verification, and unpacking.
 - [x] SARIF and CycloneDX outputs are generated.
 
+## Release-candidate verification
+
+- [x] Windows test suite passes: 52 tests, 52 passed, 0 failed.
+- [x] TypeScript project references pass with `npm run check`.
+- [x] Development environment passes `npm run doctor` on Node.js 24.
+- [x] Prepared release manifest verifies all 37 declared files.
+- [x] Portable package builds with 37 files.
+- [x] Portable package verification passes.
+
 ## Publication gate
 
 - [ ] Required GitHub Actions run is green for the release commit.
@@ -34,4 +43,4 @@
 - [ ] Portable `codex-package-0.2.0.tgz` artifact is attached.
 - [ ] Manifest status is changed from `draft` to `released` and `releasedAt` is set.
 
-The implementation is complete when all specification, implementation, and conformance boxes are checked. Publication is complete only after the external GitHub release gates are checked.
+The implementation is complete when all specification, implementation, conformance, and release-candidate verification boxes are checked. Publication is complete only after the external GitHub release gates are checked.
