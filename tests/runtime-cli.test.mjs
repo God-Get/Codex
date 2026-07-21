@@ -44,7 +44,7 @@ test("codex-import writes deterministic project and JSON envelope", async () => 
   assert.equal(payload.command, "import.compile");
   assert.equal(payload.result.project.id, "runtime.cli");
   assert.equal(payload.result.statistics.objects, 2);
-  assert.deepEqual(payload.result.files, [path.join("objects", "source.md"), path.join("objects", "translation.md")]);
+  assert.deepEqual(payload.result.files, ["objects/source.md", "objects/translation.md"]);
   const project = JSON.parse(await readFile(output, "utf8"));
   assert.equal(project.objects.length, 2);
 });
