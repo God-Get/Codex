@@ -1,0 +1,10 @@
+{
+  "name": "@codex/graph",
+  "version": "0.2.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@codex/core": "0.1.0"
+  }
+}
