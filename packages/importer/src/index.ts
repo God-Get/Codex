@@ -8,6 +8,10 @@ export interface ParsedDocument { metadata: Record<string, unknown>; body: strin
 export interface CompileOptions { codexVersion?: string; profile?: string; output?: string; }
 export interface CompileResult { project: CodexProject; graph: CodexGraph; files: string[]; }
 
+function portablePath(value: string): string {
+  return value.replaceAll(path.sep, "/");
+}
+
 export function parseFrontMatter(source: string, file = "<memory>"): ParsedDocument {
   const normalized = source.replace(/\r\n/g, "\n");
   if (!normalized.startsWith("---\n")) throw new Error(`${file}: missing YAML front matter`);
@@ -45,7 +49,7 @@ export async function compileProject(root: string, options: CompileOptions = {})
   const files = await scanProject(root);
   const objects: CodexObject[] = [];
   for (const file of files) {
-    const parsed = parseFrontMatter(await fs.readFile(file, "utf8"), path.relative(root, file));
+    const parsed = parseFrontMatter(await fs.readFile(file, "utf8"), portablePath(path.relative(root, file)));
     objects.push(toObject(parsed));
   }
   const project: CodexProject = {
@@ -61,7 +65,7 @@ export async function compileProject(root: string, options: CompileOptions = {})
     await fs.mkdir(path.dirname(outputPath), { recursive: true });
     await fs.writeFile(outputPath, `${JSON.stringify(project, null, 2)}\n`, "utf8");
   }
-  return { project, graph, files: files.map((file) => path.relative(root, file)) };
+  return { project, graph, files: files.map((file) => portablePath(path.relative(root, file))) };
 }
 
 function toObject(document: ParsedDocument): CodexObject {
@@ -112,7 +116,7 @@ function parseScalar(value: string): unknown {
   if (value.startsWith("[") && value.endsWith("]")) return value.slice(1, -1).split(",").map((item) => stripQuotes(item.trim())).filter(Boolean);
   return stripQuotes(value);
 }
-function stripQuotes(value: string): string { return value.replace(/^(["'])(.*)\1$/, "$2"); }
+function stripQuotes(value: string): string { return value.replace(/^(\["'])(.*)\1$/, "$2"); }
 function stringValue(value: unknown): string | undefined { return typeof value === "string" && value.length ? value : undefined; }
 function stringArray(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : stringValue(value) ? [stringValue(value)!] : []; }
 function requiredString(document: ParsedDocument, key: string): string { const value = stringValue(document.metadata[key]); if (!value) throw new Error(`${document.source.file}: required field '${key}' is missing`); return value; }
