@@ -2,35 +2,35 @@
 
 All notable changes to CODEX are documented here.
 
-## [Unreleased]
+## [0.2.0] — 2026-07-21
+
+CODEX 0.2 establishes the first complete implementation baseline for portable digital scholarly editions.
 
 ### Added
 
-- normative CODEX Core 0.2 draft specification;
-- machine-readable Core rule catalogue with stable `CORE-*` requirement identifiers;
-- profile descriptor JSON Schema;
-- `@codex/profiles` package with discovery, loading, inheritance, cycle detection, registry merging, and conflict detection;
-- built-in `core`, `scholarly-edition`, and `hermetica` profiles;
-- profile-aware project validation and diagnostics;
-- `codex profiles list`, `codex profiles inspect`, and `codex profiles validate`;
-- CODEX 0.2.0 draft release manifest including Core specification and profiles;
-- profile conformance tests and CI coverage;
-- TypeScript workspace with core, registry, schema, validator, release, profiles, and CLI packages;
-- machine-readable JSON registries and JSON Schemas;
-- structural schema validation with stable `ERR-2001…ERR-2004` diagnostics;
-- `codex validate` with human-readable, JSON, and SARIF reports;
-- `codex doctor` environment, registry, schema, release-manifest, and profile checks;
-- `codex inspect` with human-readable and JSON structural reports;
-- `codex graph` with JSON and Graphviz DOT exports, relationship filters, and file output;
-- `codex diagnostics` with human-readable, JSON, severity-filtered, and profile-aware output;
-- `codex release prepare` and `codex release verify` with SHA-256 integrity checks;
-- Ed25519 key generation, detached manifest signing, and signature verification;
-- `codex package build`, `codex package verify`, and `codex package unpack`;
-- CycloneDX 1.7 software bill of materials at `bom.cdx.json`;
-- package allow-list checks, symbolic-link rejection, root-confined paths, and safe unpacking;
-- semantic relationship, version, provenance, cycle, and reachability validation;
-- tamper, unexpected-file, package-assembly, unpacking, SBOM, signature, and profile regression tests;
-- GitHub Actions SARIF upload and deterministic portable package artifacts.
+- canonical Core interfaces, controlled registries, JSON Schemas, and stable diagnostics;
+- Core, scholarly-edition, and HERMETICA profiles with inheritance and registry merging;
+- structural and semantic validation, provenance checks, relation constraints, cycle detection, reachability, inspection, JSON graphs, DOT, diagnostics, and SARIF;
+- deterministic release manifests, SHA-256 verification, portable packages, CycloneDX SBOM, safe unpacking, and Ed25519 signatures;
+- Markdown authoring compiler with structured diagnostics and standalone/integrated CLIs;
+- canonical runtime graph with object/type indexes, incoming/outgoing edges, roots, traversal, reachability, and statistics;
+- deterministic Markdown/YAML importer and `codex-import` CLI;
+- query parser/executor and `codex-query` CLI;
+- versioned CLI JSON envelope with `apiVersion: 0.2`;
+- HERMETICA reference corpus with work, fragment, Russian translation, multilingual metadata, and provenance;
+- end-to-end CI covering build, tests, authoring, importer, query, validation, release signing, packaging, SBOM, verification, and safe unpacking.
+
+### Compatibility baseline
+
+- Node.js 22 or newer;
+- ECMAScript modules;
+- JSON Schema Draft 2020-12;
+- CODEX project version 0.2.0;
+- CLI machine API version 0.2.
+
+### Stability
+
+Schemas, public package exports, CLI command names, JSON envelopes, profile identifiers, and release formats listed in the 0.2 manifest are frozen for the 0.2 line. Backward-incompatible changes require a later CODEX version.
 
 ## [0.0.1] — Genesis — 2026-07-14
 
