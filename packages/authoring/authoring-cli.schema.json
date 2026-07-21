@@ -5,12 +5,14 @@
   "oneOf": [
     {
       "type": "object",
-      "additionalProperties": true,
-      "required": ["outputPath", "project"],
+      "additionalProperties": false,
+      "required": ["ok", "project", "projectId", "objectCount"],
       "properties": {
         "ok": { "const": true },
         "outputPath": { "type": "string", "minLength": 1 },
         "project": { "type": "object" },
+        "projectId": { "type": "string", "minLength": 1 },
+        "objectCount": { "type": "integer", "minimum": 0 },
         "profile": { "type": "string", "minLength": 1 },
         "profileChain": {
           "type": "array",
