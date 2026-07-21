@@ -32,6 +32,9 @@ jobs:
       - run: npm run compile:hermetica
       - run: test -s .codex/hermetica.project.json
       - run: node -e "const p=require('./.codex/hermetica.project.json'); if(p.profile!=='hermetica'||p.objects.length<3) process.exit(1)"
+      - run: node apps/cli/dist/main.js compile reference/hermetica --output=.codex/hermetica.cli.json --json
+      - run: test -s .codex/hermetica.cli.json
+      - run: cmp .codex/hermetica.project.json .codex/hermetica.cli.json
       - run: npm run doctor
       - run: npm run profiles:list
       - run: npm run profiles:inspect
