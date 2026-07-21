@@ -1,6 +1,6 @@
 ---
 codexVersion: 0.2.0
-id: hermetica-authoring-example
+id: PROJ-0002
 title: Hermetica Authoring Example
 profile: hermetica
 ---
