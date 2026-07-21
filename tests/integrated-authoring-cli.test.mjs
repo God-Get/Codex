@@ -46,32 +46,35 @@ Body.
   return root;
 }
 
-test("integrated authoring CLI preserves successful JSON envelope", async () => {
+test("integrated authoring CLI emits the shared success envelope", async () => {
   const root = await fixture();
   const output = path.join(root, "project.json");
-  const result = await run(["authoring", "compile", root, `--output=${output}`, "--no-validate", "--json"]);
-  assert.equal(result.code, 0, result.stderr);
-  assert.equal(result.stderr, "");
-  const payload = JSON.parse(result.stdout);
+  const response = await run(["authoring", "compile", root, `--output=${output}`, "--no-validate", "--json"]);
+  assert.equal(response.code, 0, response.stderr);
+  assert.equal(response.stderr, "");
+  const payload = JSON.parse(response.stdout);
   assert.equal(payload.ok, true);
-  assert.equal(payload.outputPath, output);
-  assert.equal(payload.project.id, "integrated.fixture");
-  assert.equal(payload.projectId, "integrated.fixture");
-  assert.equal(payload.objectCount, 1);
+  assert.equal(payload.apiVersion, "0.2");
+  assert.equal(payload.command, "authoring.compile");
+  assert.equal(payload.result.outputPath, output);
+  assert.equal(payload.result.project.id, "integrated.fixture");
+  assert.equal(payload.result.project.objects.length, 1);
 });
 
-test("integrated authoring CLI emits AUTH diagnostic JSON on stderr", async () => {
+test("integrated authoring CLI emits the shared failure envelope", async () => {
   const root = await fixture();
   await writeFile(path.join(root, "objects", "broken.md"), `---
 id: broken
 not valid
 ---
 `, "utf8");
-  const result = await run(["authoring", "compile", root, "--json"]);
-  assert.equal(result.code, 1);
-  assert.equal(result.stdout, "");
-  const payload = JSON.parse(result.stderr);
+  const response = await run(["authoring", "compile", root, "--json"]);
+  assert.equal(response.code, 1);
+  assert.equal(response.stdout, "");
+  const payload = JSON.parse(response.stderr);
   assert.equal(payload.ok, false);
+  assert.equal(payload.apiVersion, "0.2");
+  assert.equal(payload.command, "authoring.compile");
   assert.equal(payload.diagnostic.code, "AUTH-1003");
   assert.equal(payload.diagnostic.source, path.join("objects", "broken.md"));
   assert.equal(payload.diagnostic.line, 3);
@@ -81,9 +84,9 @@ not valid
 test("integrated authoring CLI includes the diagnostic code in human errors", async () => {
   const root = await fixture();
   await writeFile(path.join(root, "objects", "broken.md"), "no front matter\n", "utf8");
-  const result = await run(["authoring", "compile", root]);
-  assert.equal(result.code, 1);
-  assert.equal(result.stdout, "");
-  assert.match(result.stderr, /Authoring operation failed \[AUTH-1001\]/);
-  assert.match(result.stderr, /objects[\\/]broken\.md:1:1/);
+  const response = await run(["authoring", "compile", root]);
+  assert.equal(response.code, 1);
+  assert.equal(response.stdout, "");
+  assert.match(response.stderr, /Authoring operation failed \[AUTH-1001\]/);
+  assert.match(response.stderr, /objects[\\/]broken\.md:1:1/);
 });
