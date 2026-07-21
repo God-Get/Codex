@@ -1,0 +1,28 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex.example/schemas/profile.schema.json",
+  "title": "CODEX Profile Descriptor",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["id", "name", "version", "codexVersion", "inherits", "extensions"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "id": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"},
+    "name": {"type": "string", "minLength": 1},
+    "version": {"type": "string", "pattern": "^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?$"},
+    "codexVersion": {"type": "string", "minLength": 1},
+    "description": {"type": "string"},
+    "inherits": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^[a-z][a-z0-9-]*$"}},
+    "extensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "objectTypes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "relationTypes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "languages": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+        "diagnostics": {"type": "array", "items": {"type": "object", "required": ["code", "severity", "title"], "properties": {"code": {"type": "string"}, "severity": {"enum": ["error", "warning", "info"]}, "title": {"type": "string"}}}},
+        "relationConstraints": {"type": "object", "additionalProperties": {"type": "object", "required": ["sources", "targets"], "properties": {"sources": {"type": "array", "items": {"type": "string"}}, "targets": {"type": "array", "items": {"type": "string"}}}}}
+      }
+    }
+  }
+}
