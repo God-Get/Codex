@@ -1,0 +1,23 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "specification": "CODEX Core",
+  "version": "0.2.0-draft",
+  "rules": [
+    {"id":"CORE-PROJ-001","level":"MUST","subject":"project","requirement":"A project declares a semantic codexVersion.","diagnostics":["ERR-1001","ERR-1004"]},
+    {"id":"CORE-PROJ-002","level":"MUST","subject":"project","requirement":"A project has a valid stable identifier.","diagnostics":["ERR-1002"]},
+    {"id":"CORE-PROJ-003","level":"MUST","subject":"project","requirement":"A project contains an objects collection.","diagnostics":["ERR-1003"]},
+    {"id":"CORE-OBJ-001","level":"MUST","subject":"object","requirement":"Object identifiers are syntactically valid and unique.","diagnostics":["ERR-1101","ERR-1102"]},
+    {"id":"CORE-OBJ-002","level":"MUST","subject":"object","requirement":"Object types and lifecycle states are registered.","diagnostics":["ERR-1103","ERR-1104"]},
+    {"id":"CORE-OBJ-003","level":"MUST","subject":"object","requirement":"Objects have non-empty titles and semantic versions.","diagnostics":["ERR-1105","ERR-1106"]},
+    {"id":"CORE-OBJ-004","level":"MUST","subject":"object","requirement":"Declared language codes are registered.","diagnostics":["ERR-1107"]},
+    {"id":"CORE-REL-001","level":"MUST","subject":"relation","requirement":"Relation types are registered and targets exist.","diagnostics":["ERR-1201","ERR-1202"]},
+    {"id":"CORE-REL-002","level":"MUST","subject":"relation","requirement":"Relation endpoints satisfy registered source and target constraints.","diagnostics":["ERR-1203","ERR-1204"]},
+    {"id":"CORE-REL-003","level":"MUST","subject":"relation","requirement":"Forbidden self-references and cycles are rejected.","diagnostics":["ERR-1205","ERR-1206"]},
+    {"id":"CORE-PROV-001","level":"MUST","subject":"provenance","requirement":"Provenance identifiers are valid and resolve to existing distinct objects.","diagnostics":["ERR-1301","ERR-1302","ERR-1303"]},
+    {"id":"CORE-PROV-002","level":"MUST","subject":"provenance","requirement":"Translations and commentaries identify scholarly sources or subjects.","diagnostics":["ERR-1304","ERR-1305"]},
+    {"id":"CORE-GRAPH-001","level":"SHOULD","subject":"graph","requirement":"Strict-profile objects are reachable from a containment root.","diagnostics":["WARN-1401"]},
+    {"id":"CORE-SCHEMA-001","level":"MUST","subject":"schema","requirement":"Project values satisfy the CODEX structural schema.","diagnostics":["ERR-2001","ERR-2002","ERR-2003","ERR-2004"]},
+    {"id":"CORE-PKG-001","level":"MUST","subject":"package","requirement":"Package files match the sealed manifest and SHA-256 checksums.","diagnostics":[]},
+    {"id":"CORE-PROFILE-001","level":"MUST","subject":"profile","requirement":"Profiles declare identity, compatibility, inheritance, and extensions without weakening Core.","diagnostics":[]}
+  ]
+}
