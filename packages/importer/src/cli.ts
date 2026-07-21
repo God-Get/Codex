@@ -16,7 +16,7 @@ function writeJson(value: unknown, stream: NodeJS.WriteStream = process.stdout):
 async function main(): Promise<void> {
   const [, , root, ...args] = process.argv;
   const command = "import.compile";
-  const json = args.includes("--json");
+  const json = [root, ...args].includes("--json");
   if (!root || root.startsWith("--")) {
     const diagnostic = { code: "IMPORT-1001", message: "Usage: codex-import <directory> [--output=project.json] [--profile=id] [--codex-version=x.y.z] [--json]" };
     if (json) writeJson({ ok: false, apiVersion: API_VERSION, command, diagnostic }, process.stderr);
