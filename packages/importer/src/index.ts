@@ -116,7 +116,7 @@ function parseScalar(value: string): unknown {
   if (value.startsWith("[") && value.endsWith("]")) return value.slice(1, -1).split(",").map((item) => stripQuotes(item.trim())).filter(Boolean);
   return stripQuotes(value);
 }
-function stripQuotes(value: string): string { return value.replace(/^(\["'])(.*)\1$/, "$2"); }
+function stripQuotes(value: string): string { return value.replace(/^(["'])(.*)\1$/, "$2"); }
 function stringValue(value: unknown): string | undefined { return typeof value === "string" && value.length ? value : undefined; }
 function stringArray(value: unknown): string[] { return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : stringValue(value) ? [stringValue(value)!] : []; }
 function requiredString(document: ParsedDocument, key: string): string { const value = stringValue(document.metadata[key]); if (!value) throw new Error(`${document.source.file}: required field '${key}' is missing`); return value; }
