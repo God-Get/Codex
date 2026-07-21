@@ -1,0 +1,40 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-spec.org/schemas/authoring-diagnostic.schema.json",
+  "title": "CODEX Authoring Diagnostic",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["code", "message"],
+  "properties": {
+    "code": {
+      "type": "string",
+      "enum": [
+        "AUTH-1001",
+        "AUTH-1002",
+        "AUTH-1003",
+        "AUTH-1004",
+        "AUTH-1005",
+        "AUTH-1006",
+        "AUTH-1007",
+        "AUTH-1008",
+        "AUTH-1009"
+      ]
+    },
+    "message": {
+      "type": "string",
+      "minLength": 1
+    },
+    "source": {
+      "type": "string",
+      "minLength": 1
+    },
+    "line": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "column": {
+      "type": "integer",
+      "minimum": 1
+    }
+  }
+}
