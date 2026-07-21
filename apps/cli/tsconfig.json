@@ -12,6 +12,7 @@
   },
   "references": [
     {"path": "../../packages/core"},
+    {"path": "../../packages/importer"},
     {"path": "../../packages/profiles"},
     {"path": "../../packages/registry"},
     {"path": "../../packages/release"},
