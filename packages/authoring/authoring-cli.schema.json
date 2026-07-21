@@ -6,27 +6,38 @@
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ok", "project", "projectId", "objectCount"],
+      "required": ["ok", "apiVersion", "command", "result"],
       "properties": {
         "ok": { "const": true },
-        "outputPath": { "type": "string", "minLength": 1 },
-        "project": { "type": "object" },
-        "projectId": { "type": "string", "minLength": 1 },
-        "objectCount": { "type": "integer", "minimum": 0 },
-        "profile": { "type": "string", "minLength": 1 },
-        "profileChain": {
-          "type": "array",
-          "items": { "type": "string", "minLength": 1 }
-        },
-        "validation": { "type": "object" }
+        "apiVersion": { "const": "0.2" },
+        "command": { "const": "authoring.compile" },
+        "result": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["project", "projectId", "objectCount"],
+          "properties": {
+            "outputPath": { "type": "string", "minLength": 1 },
+            "project": { "type": "object" },
+            "projectId": { "type": "string", "minLength": 1 },
+            "objectCount": { "type": "integer", "minimum": 0 },
+            "profile": { "type": "string", "minLength": 1 },
+            "profileChain": {
+              "type": "array",
+              "items": { "type": "string", "minLength": 1 }
+            },
+            "validation": { "type": "object" }
+          }
+        }
       }
     },
     {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ok", "diagnostic"],
+      "required": ["ok", "apiVersion", "command", "diagnostic"],
       "properties": {
         "ok": { "const": false },
+        "apiVersion": { "const": "0.2" },
+        "command": { "const": "authoring.compile" },
         "diagnostic": {
           "$ref": "./authoring-diagnostic.schema.json"
         }
