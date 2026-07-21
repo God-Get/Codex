@@ -1,8 +1,8 @@
 {
   "$schema": "../../schemas/release-manifest.schema.json",
-  "formatVersion": "0.1.0",
+  "formatVersion": "0.2.0",
   "id": "RELEASE-0002",
-  "name": "CODEX 0.2.0 Core and Profiles",
+  "name": "CODEX 0.2.0",
   "version": "0.2.0",
   "status": "draft",
   "releasedAt": null,
@@ -13,14 +13,22 @@
     "schema": "0.1.0",
     "validator": "0.1.0",
     "release": "0.1.0",
+    "authoring": "0.2.0",
+    "graph": "0.2.0",
+    "importer": "0.2.0",
+    "query": "0.2.0",
     "cli": "0.2.0"
   },
   "artifacts": [
+    "README.md",
+    "CHANGELOG.md",
     "specs/core/README.md",
     "specs/core/rules.json",
+    "specs/runtime/README.md",
     "schemas/project.schema.json",
     "schemas/profile.schema.json",
     "schemas/release-manifest.schema.json",
+    "schemas/cli-envelope.schema.json",
     "registry/object-types.json",
     "registry/relation-types.json",
     "registry/lifecycle-statuses.json",
@@ -30,7 +38,13 @@
     "registry/relation-constraints.json",
     "profiles/core/profile.json",
     "profiles/scholarly-edition/profile.json",
-    "profiles/hermetica/profile.json"
+    "profiles/hermetica/profile.json",
+    "packages/authoring/authoring-cli.schema.json",
+    "reference/hermetica/project.yml",
+    "reference/hermetica/works/corpus-hermeticum.md",
+    "reference/hermetica/fragments/ch-01.md",
+    "reference/hermetica/translations/ru/ch-01.md",
+    "releases/0.2.0/RELEASE-CHECKLIST.md"
   ],
   "conformanceFixtures": [
     "examples/minimal-project.json",
@@ -39,6 +53,8 @@
     "examples/invalid-cycles-and-versions.json",
     "examples/invalid-provenance-and-reachability.json",
     "examples/invalid-language-and-provenance.json",
-    "examples/invalid-schema.json"
+    "examples/invalid-schema.json",
+    "examples/authoring/project.md",
+    "reference/hermetica/project.yml"
   ]
 }
