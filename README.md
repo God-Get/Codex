@@ -42,21 +42,14 @@ The test suite includes package-level tests, CLI process tests, malformed-input 
 
 ## Authoring and importing
 
-Compile the structured authoring example through the integrated CLI:
-
 ```bash
 npm run authoring:compile
 npm run authoring:compile:json
-```
-
-Compile the HERMETICA Markdown/YAML corpus through the runtime importer:
-
-```bash
 npm run import:hermetica
 npm run import:hermetica:json
 ```
 
-Direct package CLI usage:
+Direct importer usage:
 
 ```bash
 node packages/importer/dist/cli.js reference/hermetica \
@@ -104,8 +97,6 @@ Every diagnostic emitted by CODEX is registered in `registry/diagnostic-codes.js
 
 ## Machine-readable CLI contract
 
-JSON commands use a stable envelope:
-
 ```json
 {
   "ok": true,
@@ -119,25 +110,13 @@ Failures use the same envelope with `ok: false` and a structured `diagnostic`. S
 
 ## Release integrity
 
-Prepare and verify a sealed release manifest:
-
 ```bash
 npm run release:prepare
 npm run release:verify
 npm run release:verify:json
-```
-
-Generate an ephemeral Ed25519 pair, sign the manifest, and verify the detached signature:
-
-```bash
 npm run release:keygen
 npm run release:sign
 npm run release:signature-verify
-```
-
-Build, verify, and safely unpack the portable release package:
-
-```bash
 npm run package:build
 npm run package:verify
 npm run package:verify:json
@@ -154,7 +133,7 @@ The package contains the sealed manifest, `CHECKSUMS.sha256`, a package descript
 - final publication checklist: `releases/0.2.0/RELEASE-CHECKLIST.md`;
 - changes: `CHANGELOG.md`.
 
-The codebase and conformance assets are complete. The manifest intentionally remains `draft` until a green workflow run produces the prepared checksums, detached signature, public key, and portable release archive.
+The codebase and conformance assets are complete. The manifest intentionally remains `draft` until a green workflow run produces prepared checksums, a detached signature, a public key, and the portable release archive.
 
 ## Repository structure
 
