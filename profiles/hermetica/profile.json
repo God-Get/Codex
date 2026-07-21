@@ -1,0 +1,24 @@
+{
+  "$schema": "../../schemas/profile.schema.json",
+  "id": "hermetica",
+  "name": "HERMETICA",
+  "version": "0.2.0",
+  "codexVersion": ">=0.2.0 <0.3.0",
+  "description": "Reference profile for multilingual annotated editions of Hermetic texts.",
+  "inherits": ["scholarly-edition"],
+  "extensions": {
+    "objectTypes": ["hermeticWork", "hermeticFragment", "parallelPassage", "doctrine", "receptionWitness"],
+    "relationTypes": ["parallels", "receives", "attributesTo", "interpretsAs"],
+    "languages": ["cop", "syr"],
+    "diagnostics": [
+      {"code":"HERM-1001","severity":"error","title":"Hermetic translation without source fragment"},
+      {"code":"HERM-1002","severity":"warning","title":"Hermetic doctrine without textual evidence"}
+    ],
+    "relationConstraints": {
+      "parallels": {"sources":["parallelPassage","hermeticFragment","fragment"],"targets":["hermeticFragment","fragment","parallelPassage"]},
+      "receives": {"sources":["receptionWitness","commentary"],"targets":["hermeticWork","hermeticFragment","doctrine"]},
+      "attributesTo": {"sources":["source","receptionWitness","commentary"],"targets":["hermeticWork","hermeticFragment"]},
+      "interpretsAs": {"sources":["commentary","receptionWitness"],"targets":["doctrine","term","hermeticFragment"]}
+    }
+  }
+}
