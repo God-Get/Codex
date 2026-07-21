@@ -4,6 +4,7 @@
   "type": "module",
   "bin": {"codex": "dist/index.js"},
   "dependencies": {
+    "@codex/authoring": "0.2.0",
     "@codex/core": "0.1.0",
     "@codex/profiles": "0.2.0",
     "@codex/registry": "0.1.0",
