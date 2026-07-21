@@ -23,7 +23,9 @@ test("graph indexes and traverses project objects", () => {
   const graph = buildGraph(project);
   assert.equal(graph.getObject("fragment")?.title, "Fragment");
   assert.equal(graph.getObjectsByType("translation").length, 1);
-  assert.deepEqual(graph.descendants("work").map((object) => object.id), ["fragment", "translation"]);
+  assert.deepEqual(graph.descendants("work").map((object) => object.id), ["fragment"]);
+  assert.deepEqual(graph.descendants("translation", ["derivedFrom"]).map((object) => object.id), ["fragment"]);
+  assert.deepEqual(graph.neighbours("fragment").map((object) => object.id).sort(), ["translation", "work"]);
   assert.equal(graph.edgesTo("fragment").length, 2);
   assert.equal(graph.statistics().objects, 3);
   assert.equal(graph.statistics().relations, 2);
