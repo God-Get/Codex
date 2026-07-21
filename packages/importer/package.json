@@ -5,7 +5,7 @@
   "main": "dist/index.js",
   "types": "dist/index.d.ts",
   "dependencies": {
-    "@codex/core": "0.2.0",
+    "@codex/core": "0.1.0",
     "@codex/graph": "0.2.0"
   }
 }
