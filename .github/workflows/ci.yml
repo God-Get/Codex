@@ -21,8 +21,12 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run doctor
+      - run: npm run profiles:list
+      - run: npm run profiles:inspect
+      - run: npm run profiles:validate
       - run: npm run validate
       - run: npm run validate:strict
+      - run: npm run validate:hermetica
       - run: npm run validate:json
       - run: npm run validate:sarif
       - run: test -s codex-results.sarif
@@ -49,19 +53,19 @@ jobs:
       - run: npm run release:sign
       - run: npm run release:signature-verify
       - run: npm run package:build
-      - run: test -s codex-package-0.1.0/CHECKSUMS.sha256
-      - run: test -s codex-package-0.1.0/bom.cdx.json
+      - run: test -s codex-package-0.2.0/CHECKSUMS.sha256
+      - run: test -s codex-package-0.2.0/bom.cdx.json
       - run: npm run package:verify
       - run: npm run package:verify:json
       - run: npm run package:unpack
-      - run: cmp codex-package-0.1.0/manifest.json codex-unpacked-0.1.0/manifest.json
-      - run: tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf codex-package-0.1.0.tgz -C codex-package-0.1.0 .
+      - run: cmp codex-package-0.2.0/manifest.json codex-unpacked-0.2.0/manifest.json
+      - run: tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf codex-package-0.2.0.tgz -C codex-package-0.2.0 .
       - name: Upload portable CODEX package
         uses: actions/upload-artifact@v7
         with:
-          name: codex-package-0.1.0
+          name: codex-package-0.2.0
           path: |
-            codex-package-0.1.0.tgz
+            codex-package-0.2.0.tgz
             .codex-ci/manifest.sig.json
             .codex-ci/public.pem
           if-no-files-found: error
