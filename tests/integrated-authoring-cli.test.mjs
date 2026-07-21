@@ -81,12 +81,12 @@ not valid
   assert.equal(payload.diagnostic.column, 1);
 });
 
-test("integrated authoring CLI includes the diagnostic code in human errors", async () => {
+test("integrated authoring CLI includes the diagnostic code and message in human errors", async () => {
   const root = await fixture();
   await writeFile(path.join(root, "objects", "broken.md"), "no front matter\n", "utf8");
   const response = await run(["authoring", "compile", root]);
   assert.equal(response.code, 1);
   assert.equal(response.stdout, "");
   assert.match(response.stderr, /Authoring operation failed \[AUTH-1001\]/);
-  assert.match(response.stderr, /objects[\\/]broken\.md:1:1/);
+  assert.match(response.stderr, /missing front matter/);
 });
