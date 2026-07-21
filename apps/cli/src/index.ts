@@ -2,7 +2,7 @@
 
 import { access, readFile, writeFile } from "node:fs/promises";
 import process from "node:process";
-import { compileAuthoringProject } from "@codex/authoring";
+import { authoringDiagnostic, compileAuthoringProject } from "@codex/authoring";
 import type { CodexProject, Diagnostic, ValidationProfile, ValidationReport } from "@codex/core";
 import { listProfiles, loadProfile, resolveProfile } from "@codex/profiles";
 import { isRegisteredValidationProfile, loadRegistry, type RegistryData } from "@codex/registry";
@@ -152,7 +152,9 @@ async function authoringCommand(action: string | undefined, args: string[]): Pro
     }
     if (!report.valid) process.exitCode = 1;
   } catch (error) {
-    console.error(`Authoring operation failed: ${error instanceof Error ? error.message : String(error)}`);
+    const diagnostic = authoringDiagnostic(error);
+    if (args.includes("--json")) process.stderr.write(`${JSON.stringify({ ok: false, diagnostic }, null, 2)}\n`);
+    else console.error(`Authoring operation failed [${diagnostic.code}]: ${error instanceof Error ? error.message : String(error)}`);
     process.exitCode = 1;
   }
 }
