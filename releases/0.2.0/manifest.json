@@ -2,7 +2,7 @@
   "$schema": "../../schemas/release-manifest.schema.json",
   "formatVersion": "0.1.0",
   "id": "RELEASE-0002",
-  "name": "CODEX 0.2.0 Core and Profiles",
+  "name": "CODEX 0.2.0 Core, Profiles, and Runtime",
   "version": "0.2.0",
   "status": "draft",
   "releasedAt": null,
@@ -12,6 +12,8 @@
     "registry": "0.1.0",
     "schema": "0.1.0",
     "validator": "0.1.0",
+    "graph": "0.2.0",
+    "importer": "0.2.0",
     "release": "0.1.0",
     "cli": "0.2.0"
   },
@@ -30,7 +32,16 @@
     "registry/relation-constraints.json",
     "profiles/core/profile.json",
     "profiles/scholarly-edition/profile.json",
-    "profiles/hermetica/profile.json"
+    "profiles/hermetica/profile.json",
+    "packages/graph/package.json",
+    "packages/graph/src/index.ts",
+    "packages/importer/package.json",
+    "packages/importer/src/index.ts",
+    "packages/importer/src/cli.ts",
+    "reference/hermetica/project.yml",
+    "reference/hermetica/works/corpus-hermeticum.md",
+    "reference/hermetica/fragments/ch-01.md",
+    "reference/hermetica/translations/ru/ch-01.md"
   ],
   "conformanceFixtures": [
     "examples/minimal-project.json",
@@ -39,6 +50,7 @@
     "examples/invalid-cycles-and-versions.json",
     "examples/invalid-provenance-and-reachability.json",
     "examples/invalid-language-and-provenance.json",
-    "examples/invalid-schema.json"
+    "examples/invalid-schema.json",
+    "tests/graph-importer.test.mjs"
   ]
 }
