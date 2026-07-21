@@ -29,6 +29,14 @@ jobs:
       - run: npm run authoring:compile:raw
       - run: cmp examples/authoring/project.json examples/authoring/project.raw.json
       - run: node apps/cli/dist/index.js validate examples/authoring/project.json --profile=hermetica
+      - run: npm run import:hermetica
+      - run: test -s reference/hermetica/project.json
+      - run: npm run import:hermetica:json > .codex-ci/hermetica-import.json
+      - run: test -s .codex-ci/hermetica-import.json
+      - run: npm run query:hermetica
+      - run: npm run query:hermetica:json > .codex-ci/hermetica-query.json
+      - run: test -s .codex-ci/hermetica-query.json
+      - run: node apps/cli/dist/index.js validate reference/hermetica/project.json --profile=hermetica
       - run: npm run profiles:list
       - run: npm run profiles:inspect
       - run: npm run profiles:validate
@@ -77,4 +85,6 @@ jobs:
             .codex-ci/manifest.sig.json
             .codex-ci/public.pem
             .codex-ci/authoring.json
+            .codex-ci/hermetica-import.json
+            .codex-ci/hermetica-query.json
           if-no-files-found: error
