@@ -2,51 +2,94 @@
 
 **Open Architecture for Digital Scholarly Editions**
 
-CODEX is an open, reproducible framework for preparing, maintaining, publishing, and preserving scholarly editions.
+CODEX is a reproducible framework for preparing, validating, querying, packaging, publishing, and preserving digital scholarly editions.
 
-**Current release:** `0.1.0 Engineering MVP`  
-**Status:** active development
+**Current implementation:** `0.2.0`  
+**Status:** implementation complete; release publication pending the final green CI and signed artifact gate.
 
-## Engineering MVP
+## CODEX 0.2
 
 The repository contains:
 
-- `@codex/core` — canonical interfaces;
-- `@codex/registry` — machine-readable controlled vocabularies;
-- `@codex/schema` — structural project validation aligned with JSON Schema;
-- `@codex/validator` — semantic, provenance, relationship, cycle, reachability, inspection, and graph logic;
-- `@codex/release` — SHA-256 manifests, package verification, safe unpacking, CycloneDX SBOM, and Ed25519 signatures;
-- `@codex/cli` — `validate`, `inspect`, `graph`, `diagnostics`, `release`, `package`, and `doctor`;
-- conformance fixtures, regression tests, CI, SARIF publication, and a draft `0.1.0` release manifest.
+- `@codex/core` — canonical project, object, relation, diagnostic, and validation interfaces;
+- `@codex/registry` — machine-readable object types, relation types, languages, lifecycle states, profiles, constraints, and diagnostic codes;
+- `@codex/schema` — JSON Schema Draft 2020-12 structural validation;
+- `@codex/validator` — semantic validation, provenance, relation constraints, cycles, reachability, inspection, graph export, diagnostics, and SARIF;
+- `@codex/profiles` — profile discovery, inheritance, merging, and built-in Core, scholarly-edition, and HERMETICA profiles;
+- `@codex/authoring` — Markdown authoring compiler with structured diagnostics;
+- `@codex/graph` — canonical runtime graph, indexes, traversal, roots, reachability, and statistics;
+- `@codex/importer` — deterministic Markdown/YAML importer and `codex-import` CLI;
+- `@codex/query` — query parser/executor and `codex-query` CLI;
+- `@codex/release` — deterministic manifests, SHA-256 verification, safe packaging/unpacking, CycloneDX SBOM, and Ed25519 signatures;
+- `@codex/cli` — integrated validation, inspection, graph, diagnostics, profile, authoring, release, package, and doctor commands;
+- `reference/hermetica` — the multilingual HERMETICA reference corpus.
 
-## Run locally
+## Requirements
+
+- Node.js 22 or newer;
+- npm with workspace support.
+
+## Build and conformance
 
 ```bash
 npm install
 npm run check
 npm test
 npm run doctor
-npm run validate
-npm run release:prepare
-npm run release:verify
-npm run release:keygen
-npm run release:sign
-npm run release:signature-verify
-npm run package:build
-npm run package:verify
-npm run package:unpack
 ```
+
+The test suite includes package-level tests, CLI process tests, malformed-input fixtures, HERMETICA runtime conformance, release integrity, signing, SBOM, package verification, and safe unpacking.
+
+## Authoring and importing
+
+Compile the structured authoring example through the integrated CLI:
+
+```bash
+npm run authoring:compile
+npm run authoring:compile:json
+```
+
+Compile the HERMETICA Markdown/YAML corpus through the runtime importer:
+
+```bash
+npm run import:hermetica
+npm run import:hermetica:json
+```
+
+Direct package CLI usage:
+
+```bash
+node packages/importer/dist/cli.js reference/hermetica \
+  --output=reference/hermetica/project.json --profile=hermetica --json
+```
+
+## Query runtime
+
+```bash
+npm run query:hermetica
+npm run query:hermetica:json
+```
+
+Direct usage:
+
+```bash
+node packages/query/dist/cli.js reference/hermetica/project.json \
+  "type=translation AND language=ru" --json
+```
+
+CODEX Query 0.2 supports equality predicates joined by `AND`, including nested `metadata.*` fields.
 
 ## Validation
 
 ```bash
 node apps/cli/dist/index.js validate path/to/project.json
 node apps/cli/dist/index.js validate path/to/project.json --profile=strict
+node apps/cli/dist/index.js validate path/to/project.json --profile=hermetica
 node apps/cli/dist/index.js validate path/to/project.json --json
 node apps/cli/dist/index.js validate path/to/project.json --sarif --output=results.sarif
 ```
 
-Validation runs in two layers: structural schema checks, followed by CODEX semantic and graph checks. The `strict` profile additionally reports objects outside every containment root.
+Validation runs structural schema checks followed by semantic, provenance, relation, cycle, and reachability checks.
 
 ## Inspection, graphs, and diagnostics
 
@@ -54,92 +97,80 @@ Validation runs in two layers: structural schema checks, followed by CODEX seman
 node apps/cli/dist/index.js inspect path/to/project.json --json
 node apps/cli/dist/index.js graph path/to/project.json --format=dot --output=project.dot
 node apps/cli/dist/index.js graph path/to/project.json --relations=contains,derivedFrom
-node apps/cli/dist/index.js diagnostics --severity=warning
+node apps/cli/dist/index.js diagnostics --severity=warning --json
 ```
 
-Every emitted diagnostic must be registered in `registry/diagnostic-codes.json`. Schema diagnostics use the `ERR-2001…ERR-2004` range.
+Every diagnostic emitted by CODEX is registered in `registry/diagnostic-codes.json`.
+
+## Machine-readable CLI contract
+
+JSON commands use a stable envelope:
+
+```json
+{
+  "ok": true,
+  "apiVersion": "0.2",
+  "command": "command.name",
+  "result": {}
+}
+```
+
+Failures use the same envelope with `ok: false` and a structured `diagnostic`. Successful JSON is written to stdout; failures are written to stderr.
 
 ## Release integrity
 
-Prepare a sealed manifest containing SHA-256 checksums, then verify it:
+Prepare and verify a sealed release manifest:
 
 ```bash
-node apps/cli/dist/index.js release prepare releases/0.1.0/manifest.json \
-  --output=releases/0.1.0/manifest.prepared.json
-node apps/cli/dist/index.js release verify releases/0.1.0/manifest.prepared.json
+npm run release:prepare
+npm run release:verify
+npm run release:verify:json
 ```
 
-Create an Ed25519 key pair, sign the prepared manifest, and verify the detached signature:
+Generate an ephemeral Ed25519 pair, sign the manifest, and verify the detached signature:
 
 ```bash
-node apps/cli/dist/index.js release keygen \
-  --private-key=private.pem --public-key=public.pem
-node apps/cli/dist/index.js release sign releases/0.1.0/manifest.prepared.json \
-  --private-key=private.pem --output=manifest.sig.json
-node apps/cli/dist/index.js release signature-verify releases/0.1.0/manifest.prepared.json \
-  --signature=manifest.sig.json --public-key=public.pem
+npm run release:keygen
+npm run release:sign
+npm run release:signature-verify
 ```
 
-Private keys are never committed. CI generates an ephemeral Ed25519 pair only to test the signing path.
-
-## Portable packages and SBOM
-
-Build, verify, and safely unpack a package directory:
+Build, verify, and safely unpack the portable release package:
 
 ```bash
-node apps/cli/dist/index.js package build releases/0.1.0/manifest.prepared.json \
-  --output=codex-package-0.1.0
-node apps/cli/dist/index.js package verify codex-package-0.1.0
-node apps/cli/dist/index.js package unpack codex-package-0.1.0 \
-  --output=codex-unpacked-0.1.0
+npm run package:build
+npm run package:verify
+npm run package:verify:json
+npm run package:unpack
 ```
 
-The package contains:
+The package contains the sealed manifest, `CHECKSUMS.sha256`, a package descriptor, a CycloneDX SBOM, and every declared artifact or conformance fixture. Verification rejects missing, changed, undeclared, symbolic-link, and path-unsafe entries.
 
-- `manifest.json` — sealed release manifest;
-- `CHECKSUMS.sha256` — deterministic checksum list;
-- `codex-package.json` — package descriptor;
-- `bom.cdx.json` — CycloneDX 1.7 SBOM;
-- all declared schemas, registries, and conformance fixtures.
+## Specifications and release
 
-Verification rejects missing or modified files, symbolic links, unsafe entries, descriptor/manifest mismatches, and undeclared extra files. Unpacking starts only after successful verification and copies only regular files through root-confined paths.
-
-GitHub Actions creates a deterministic `codex-package-0.1.0.tgz` and publishes it together with the detached manifest signature and public key. SARIF publication depends on repository Code Scanning settings.
-
-## Current coverage
-
-- JSON structure and schema diagnostics;
-- identifiers, semantic versions, registries, relation constraints, cycles, and provenance;
-- strict containment reachability;
-- JSON, DOT, and SARIF output;
-- release SHA-256 verification and tamper detection;
-- package allow-list verification and safe unpacking;
-- CycloneDX 1.7 SBOM generation;
-- Ed25519 detached manifest signatures.
+- Core specification: `specs/core/README.md`;
+- runtime specification: `specs/runtime/README.md`;
+- release manifest: `releases/0.2.0/manifest.json`;
+- final publication checklist: `releases/0.2.0/RELEASE-CHECKLIST.md`;
+- changes: `CHANGELOG.md`.
 
 ## Repository structure
 
 ```text
-apps/          executable applications
-packages/      core, registry, schema, validator, and release packages
-core/          normative CODEX Core drafts
-registry/      machine-readable controlled vocabularies
-schemas/       machine-readable validation schemas
-examples/      valid and invalid conformance fixtures
-tests/         executable conformance and regression tests
-releases/      source and prepared release manifests
+apps/          integrated executable applications
+packages/      reusable CODEX packages
+registry/      controlled vocabularies and constraints
+schemas/       machine-readable schemas
+profiles/      built-in validation profiles
+specs/         normative implementation specifications
+reference/     reference scholarly corpora
+examples/      valid and invalid fixtures
+ tests/         conformance and regression tests
+releases/      release manifests and publication gates
 rfc/           proposals and extensions
 adr/           architectural decisions
-specs/         implementation specifications
-profiles/      domain-specific profiles
-guides/        implementation guidance
-templates/     reusable project artifacts
 ```
-
-## Planned first profile
-
-**HERMETICA** will be the first reference project and will apply CODEX to multilingual, annotated editions of classical Hermetic texts.
 
 ## License
 
-A project license has not yet been selected. Until a license is adopted, repository contents remain protected by applicable copyright law and should not be treated as openly licensed.
+A project license has not yet been selected. Until one is adopted, repository contents remain protected by applicable copyright law and must not be treated as openly licensed.
