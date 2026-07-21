@@ -55,12 +55,13 @@ jobs:
       - run: npm run package:verify:json
       - run: npm run package:unpack
       - run: cmp codex-package-0.1.0/manifest.json codex-unpacked-0.1.0/manifest.json
-      - run: cp .codex-ci/manifest.sig.json codex-package-0.1.0/manifest.sig.json
-      - run: cp .codex-ci/public.pem codex-package-0.1.0/public.pem
       - run: tar --sort=name --mtime='UTC 1970-01-01' --owner=0 --group=0 --numeric-owner -czf codex-package-0.1.0.tgz -C codex-package-0.1.0 .
       - name: Upload portable CODEX package
         uses: actions/upload-artifact@v7
         with:
           name: codex-package-0.1.0
-          path: codex-package-0.1.0.tgz
+          path: |
+            codex-package-0.1.0.tgz
+            .codex-ci/manifest.sig.json
+            .codex-ci/public.pem
           if-no-files-found: error
