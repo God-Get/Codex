@@ -45,7 +45,7 @@ test("importer compiles deterministic Markdown project", async () => {
   await writeFile(path.join(root, "objects", "a.md"), "---\nid: a\ntype: source\nlanguage: la\n---\n# A\n", "utf8");
   const result = await compileProject(root);
   assert.equal(result.project.id, "imported.fixture");
-  assert.deepEqual(result.files, [path.join("objects", "a.md"), path.join("objects", "b.md")]);
+  assert.deepEqual(result.files, ["objects/a.md", "objects/b.md"]);
   assert.equal(result.graph.getObject("a")?.language, "la");
   assert.equal(result.project.objects[0]?.metadata?.body, "# A");
 });
