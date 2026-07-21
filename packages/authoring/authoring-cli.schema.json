@@ -1,0 +1,34 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex-spec.org/schemas/authoring-cli.schema.json",
+  "title": "CODEX Authoring CLI Envelope",
+  "oneOf": [
+    {
+      "type": "object",
+      "additionalProperties": true,
+      "required": ["outputPath", "project"],
+      "properties": {
+        "ok": { "const": true },
+        "outputPath": { "type": "string", "minLength": 1 },
+        "project": { "type": "object" },
+        "profile": { "type": "string", "minLength": 1 },
+        "profileChain": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "validation": { "type": "object" }
+      }
+    },
+    {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ok", "diagnostic"],
+      "properties": {
+        "ok": { "const": false },
+        "diagnostic": {
+          "$ref": "./authoring-diagnostic.schema.json"
+        }
+      }
+    }
+  ]
+}
