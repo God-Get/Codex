@@ -36,13 +36,13 @@ profile: core
   await writeFile(path.join(root, "objects", "source.md"), `---
 id: source.cli
 type: source
- title: ignored
+title: Source
 version: 1.0.0
 status: draft
 language: en
 ---
 Body.
-`.replace(" title", "title"), "utf8");
+`, "utf8");
   return root;
 }
 
@@ -68,14 +68,14 @@ not valid
 `, "utf8");
   const result = await run([root, "--json"]);
   assert.equal(result.code, 1);
-  assert.equal(result.stderr, "");
-  const payload = JSON.parse(result.stdout);
+  assert.equal(result.stdout, "");
+  const payload = JSON.parse(result.stderr);
   assert.equal(payload.ok, false);
   assert.equal(payload.diagnostic.code, "AUTH-1003");
   assert.equal(payload.diagnostic.source, path.join("objects", "broken.md"));
   assert.equal(payload.diagnostic.line, 3);
   assert.equal(payload.diagnostic.column, 1);
-  assert.equal(result.stdout.trim().split("\n").filter((line) => line.startsWith("{")).length, 1);
+  assert.equal(result.stderr.trim().split("\n").filter((line) => line.startsWith("{")).length, 1);
 });
 
 test("standalone authoring CLI keeps human errors on stderr", async () => {
