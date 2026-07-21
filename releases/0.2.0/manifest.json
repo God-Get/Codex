@@ -14,6 +14,7 @@
     "validator": "0.1.0",
     "graph": "0.2.0",
     "importer": "0.2.0",
+    "query": "0.2.0",
     "release": "0.1.0",
     "cli": "0.2.0"
   },
@@ -38,6 +39,8 @@
     "packages/importer/package.json",
     "packages/importer/src/index.ts",
     "packages/importer/src/cli.ts",
+    "packages/query/package.json",
+    "packages/query/src/index.ts",
     "reference/hermetica/project.yml",
     "reference/hermetica/works/corpus-hermeticum.md",
     "reference/hermetica/fragments/ch-01.md",
@@ -51,6 +54,7 @@
     "examples/invalid-provenance-and-reachability.json",
     "examples/invalid-language-and-provenance.json",
     "examples/invalid-schema.json",
-    "tests/graph-importer.test.mjs"
+    "tests/graph-importer.test.mjs",
+    "tests/query.test.mjs"
   ]
 }
