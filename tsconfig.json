@@ -6,6 +6,7 @@
     {"path": "packages/schema"},
     {"path": "packages/validator"},
     {"path": "packages/release"},
+    {"path": "packages/profiles"},
     {"path": "apps/cli"}
   ]
 }
