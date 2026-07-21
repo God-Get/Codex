@@ -1,10 +1,10 @@
 ---
-id: source.poimandres.grc
+id: SRC-0001
 type: source
  title: Poimandres Greek Source
 version: 1.0.0
 status: published
-language: grc
+language: el
 witness: P. Berol. edition
 ---
 

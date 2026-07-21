@@ -1,12 +1,12 @@
 ---
-id: translation.poimandres.en
+id: TR-0001
 type: translation
 title: Poimandres English Translation
 version: 1.0.0
 status: draft
 language: en
-derivedFrom: ["source.poimandres.grc"]
-relations: [{"type":"translates","target":"source.poimandres.grc"}]
+derivedFrom: ["SRC-0001"]
+relations: [{"type":"translates","target":"SRC-0001"}]
 translator: CODEX HERMETICA
 ---
 

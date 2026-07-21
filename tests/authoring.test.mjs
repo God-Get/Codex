@@ -46,7 +46,7 @@ test("compiles an authoring directory into a canonical project", async () => {
   const project = await compileAuthoringProject("examples/authoring");
   assert.equal(project.codexVersion, "0.2.0");
   assert.equal(project.profile, "hermetica");
-  assert.deepEqual(project.objects.map((object) => object.id), ["source.poimandres.grc", "translation.poimandres.en"]);
+  assert.deepEqual(project.objects.map((object) => object.id), ["SRC-0001", "TR-0001"]);
 });
 
 test("emits stable diagnostics for duplicate front matter keys", () => {
