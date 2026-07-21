@@ -17,11 +17,21 @@ async function main(): Promise<void> {
     });
     const output = `${JSON.stringify(project, null, 2)}\n`;
     const outputPath = optionValue(args, "--output");
-    if (outputPath) {
-      await writeFile(outputPath, output, "utf8");
-      if (args.includes("--json")) process.stdout.write(`${JSON.stringify({ ok: true, outputPath, projectId: project.id, objectCount: project.objects.length }, null, 2)}\n`);
-      else console.log(`COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
-    } else process.stdout.write(output);
+    if (outputPath) await writeFile(outputPath, output, "utf8");
+
+    if (args.includes("--json")) {
+      process.stdout.write(`${JSON.stringify({
+        ok: true,
+        ...(outputPath ? { outputPath } : {}),
+        project,
+        projectId: project.id,
+        objectCount: project.objects.length
+      }, null, 2)}\n`);
+    } else if (outputPath) {
+      console.log(`COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
+    } else {
+      process.stdout.write(output);
+    }
   } catch (error) {
     const diagnostic = authoringDiagnostic(error);
     if (args.includes("--json")) process.stderr.write(`${JSON.stringify({ ok: false, diagnostic }, null, 2)}\n`);
