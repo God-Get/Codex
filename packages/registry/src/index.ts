@@ -31,33 +31,57 @@ export interface DiagnosticDefinition {
   title: string;
 }
 
+export interface RelationConstraint {
+  sources: readonly string[];
+  targets: readonly string[];
+}
+
 export interface RegistryData {
   objectTypes: readonly string[];
   relationTypes: readonly string[];
   lifecycleStatuses: readonly string[];
   validationProfiles: readonly string[];
   languages: readonly string[];
-  relationConstraints: Readonly<Record<string, { sources: readonly string[]; targets: readonly string[] }>>;
+  relationConstraints: Readonly<Record<string, RelationConstraint>>;
   diagnostics: readonly DiagnosticDefinition[];
 }
 
 interface RegistryListFile { values: string[]; }
-interface RelationConstraintFile { constraints: Record<string, { sources: string[]; targets: string[] }>; }
+interface RawRelationConstraint {
+  sourceTypes?: string[];
+  targetTypes?: string[];
+  sources?: string[];
+  targets?: string[];
+}
+interface RelationConstraintFile { constraints: Record<string, RawRelationConstraint>; }
 interface DiagnosticRegistryFile { diagnostics: DiagnosticDefinition[]; }
 
 function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
 }
 
+function normalizeRelationConstraints(
+  constraints: Record<string, RawRelationConstraint>
+): Record<string, RelationConstraint> {
+  return Object.fromEntries(Object.entries(constraints).map(([type, constraint]) => [
+    type,
+    {
+      sources: constraint.sourceTypes ?? constraint.sources ?? [],
+      targets: constraint.targetTypes ?? constraint.targets ?? []
+    }
+  ]));
+}
+
 export function loadRegistry(rootDirectory = process.cwd()): RegistryData {
   const registryDirectory = resolve(rootDirectory, "registry");
+  const relationConstraintFile = readJson<RelationConstraintFile>(resolve(registryDirectory, "relation-constraints.json"));
   return {
     objectTypes: readJson<RegistryListFile>(resolve(registryDirectory, "object-types.json")).values,
     relationTypes: readJson<RegistryListFile>(resolve(registryDirectory, "relation-types.json")).values,
     lifecycleStatuses: readJson<RegistryListFile>(resolve(registryDirectory, "lifecycle-statuses.json")).values,
     validationProfiles: readJson<RegistryListFile>(resolve(registryDirectory, "validation-profiles.json")).values,
     languages: readJson<RegistryListFile>(resolve(registryDirectory, "languages.json")).values,
-    relationConstraints: readJson<RelationConstraintFile>(resolve(registryDirectory, "relation-constraints.json")).constraints,
+    relationConstraints: normalizeRelationConstraints(relationConstraintFile.constraints),
     diagnostics: readJson<DiagnosticRegistryFile>(resolve(registryDirectory, "diagnostic-codes.json")).diagnostics
   };
 }
