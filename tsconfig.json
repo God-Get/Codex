@@ -7,6 +7,7 @@
     {"path": "packages/validator"},
     {"path": "packages/release"},
     {"path": "packages/profiles"},
+    {"path": "packages/authoring"},
     {"path": "apps/cli"}
   ]
 }
