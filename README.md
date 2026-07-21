@@ -165,7 +165,7 @@ profiles/      built-in validation profiles
 specs/         normative implementation specifications
 reference/     reference scholarly corpora
 examples/      valid and invalid fixtures
- tests/         conformance and regression tests
+tests/         conformance and regression tests
 releases/      release manifests and publication gates
 rfc/           proposals and extensions
 adr/           architectural decisions
