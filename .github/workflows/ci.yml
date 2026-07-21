@@ -35,6 +35,8 @@ jobs:
       - run: node apps/cli/dist/main.js compile reference/hermetica --output=.codex/hermetica.cli.json --json
       - run: test -s .codex/hermetica.cli.json
       - run: cmp .codex/hermetica.project.json .codex/hermetica.cli.json
+      - run: npm run query:hermetica > .codex/hermetica.query.json
+      - run: node -e "const q=require('./.codex/hermetica.query.json'); if(q.count!==1||q.objects[0].type!=='translation') process.exit(1)"
       - run: npm run doctor
       - run: npm run profiles:list
       - run: npm run profiles:inspect
