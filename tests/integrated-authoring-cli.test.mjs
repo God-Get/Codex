@@ -46,16 +46,18 @@ Body.
   return root;
 }
 
-test("integrated authoring CLI preserves successful JSON output", async () => {
+test("integrated authoring CLI preserves successful JSON envelope", async () => {
   const root = await fixture();
   const output = path.join(root, "project.json");
   const result = await run(["authoring", "compile", root, `--output=${output}`, "--no-validate", "--json"]);
   assert.equal(result.code, 0, result.stderr);
   assert.equal(result.stderr, "");
   const payload = JSON.parse(result.stdout);
+  assert.equal(payload.ok, true);
   assert.equal(payload.outputPath, output);
   assert.equal(payload.project.id, "integrated.fixture");
-  assert.equal(payload.project.objects.length, 1);
+  assert.equal(payload.projectId, "integrated.fixture");
+  assert.equal(payload.objectCount, 1);
 });
 
 test("integrated authoring CLI emits AUTH diagnostic JSON on stderr", async () => {
