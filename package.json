@@ -39,7 +39,7 @@
     "package:verify:json": "node apps/cli/dist/index.js package verify codex-package-0.2.0 --json",
     "package:unpack": "node apps/cli/dist/index.js package unpack codex-package-0.2.0 --output=codex-unpacked-0.2.0",
     "doctor": "node apps/cli/dist/index.js doctor",
-    "test": "npm run build && node --test tests/**/*.test.mjs"
+    "test": "npm run build && node --test --test-reporter=spec tests/*.test.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.0.0",
