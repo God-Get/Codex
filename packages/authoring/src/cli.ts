@@ -4,8 +4,15 @@ import { writeFile } from "node:fs/promises";
 import process from "node:process";
 import { authoringDiagnostic, compileAuthoringProject } from "./index.js";
 
+const CLI_API_VERSION = "0.2";
+const COMMAND = "authoring.compile";
+
 function optionValue(args: string[], name: string): string | undefined {
   return args.find((arg) => arg.startsWith(`${name}=`))?.slice(name.length + 1);
+}
+
+function writeJson(value: unknown, stream: NodeJS.WriteStream = process.stdout): void {
+  stream.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
 async function main(): Promise<void> {
@@ -20,13 +27,17 @@ async function main(): Promise<void> {
     if (outputPath) await writeFile(outputPath, output, "utf8");
 
     if (args.includes("--json")) {
-      process.stdout.write(`${JSON.stringify({
+      writeJson({
         ok: true,
-        ...(outputPath ? { outputPath } : {}),
-        project,
-        projectId: project.id,
-        objectCount: project.objects.length
-      }, null, 2)}\n`);
+        apiVersion: CLI_API_VERSION,
+        command: COMMAND,
+        result: {
+          ...(outputPath ? { outputPath } : {}),
+          project,
+          projectId: project.id,
+          objectCount: project.objects.length
+        }
+      });
     } else if (outputPath) {
       console.log(`COMPILED: ${project.id} — ${project.objects.length} objects -> ${outputPath}`);
     } else {
@@ -34,8 +45,11 @@ async function main(): Promise<void> {
     }
   } catch (error) {
     const diagnostic = authoringDiagnostic(error);
-    if (args.includes("--json")) process.stderr.write(`${JSON.stringify({ ok: false, diagnostic }, null, 2)}\n`);
-    else console.error(`Authoring compilation failed [${diagnostic.code}]: ${error instanceof Error ? error.message : String(error)}`);
+    if (args.includes("--json")) {
+      writeJson({ ok: false, apiVersion: CLI_API_VERSION, command: COMMAND, diagnostic }, process.stderr);
+    } else {
+      console.error(`Authoring compilation failed [${diagnostic.code}]: ${diagnostic.message}`);
+    }
     process.exitCode = 1;
   }
 }
