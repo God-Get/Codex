@@ -9,6 +9,7 @@
     {"path": "packages/profiles"},
     {"path": "packages/graph"},
     {"path": "packages/importer"},
+    {"path": "packages/query"},
     {"path": "apps/cli"}
   ]
 }
