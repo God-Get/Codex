@@ -7,6 +7,7 @@
   "scripts": {
     "build": "tsc -b",
     "check": "tsc -b --pretty false",
+    "authoring:compile": "node packages/authoring/dist/cli.js examples/authoring --output=examples/authoring/project.json",
     "validate": "node apps/cli/dist/index.js validate examples/minimal-project.json",
     "validate:strict": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=strict",
     "validate:hermetica": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=hermetica",
