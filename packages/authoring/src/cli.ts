@@ -15,6 +15,13 @@ function writeJson(value: unknown, stream: NodeJS.WriteStream = process.stdout):
   stream.write(`${JSON.stringify(value, null, 2)}\n`);
 }
 
+function diagnosticLocation(diagnostic: { source?: string; line?: number; column?: number }): string {
+  if (!diagnostic.source) return "";
+  const line = diagnostic.line === undefined ? "" : `:${diagnostic.line}`;
+  const column = diagnostic.column === undefined ? "" : `:${diagnostic.column}`;
+  return `${diagnostic.source}${line}${column}: `;
+}
+
 async function main(): Promise<void> {
   const [, , root = ".", ...args] = process.argv;
   try {
@@ -48,7 +55,7 @@ async function main(): Promise<void> {
     if (args.includes("--json")) {
       writeJson({ ok: false, apiVersion: CLI_API_VERSION, command: COMMAND, diagnostic }, process.stderr);
     } else {
-      console.error(`Authoring compilation failed [${diagnostic.code}]: ${diagnostic.message}`);
+      console.error(`Authoring compilation failed [${diagnostic.code}]: ${diagnosticLocation(diagnostic)}${diagnostic.message}`);
     }
     process.exitCode = 1;
   }
