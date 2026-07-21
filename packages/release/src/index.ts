@@ -1,9 +1,10 @@
-import { createHash } from "node:crypto";
-import { copyFile, mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { dirname, resolve, sep } from "node:path";
+import { createHash, generateKeyPairSync, sign, verify } from "node:crypto";
+import { copyFile, lstat, mkdir, readFile, readdir, rm, writeFile } from "node:fs/promises";
+import { dirname, relative, resolve, sep } from "node:path";
 
 export interface ReleaseManifest {
   $schema?: string;
+  formatVersion?: string;
   id: string;
   name: string;
   version: string;
@@ -20,7 +21,7 @@ export interface ReleaseVerificationItem {
   expected?: string;
   actual?: string;
   ok: boolean;
-  reason?: "missing-checksum" | "missing-file" | "checksum-mismatch";
+  reason?: "missing-checksum" | "missing-file" | "checksum-mismatch" | "unsafe-entry" | "unexpected-file";
 }
 
 export interface ReleaseVerificationReport {
@@ -37,6 +38,25 @@ export interface ReleasePackageResult {
   version: string;
 }
 
+export interface PackageDescriptor {
+  format: "codex-package";
+  formatVersion: string;
+  releaseId: string;
+  releaseVersion: string;
+  manifest: string;
+  checksums: string;
+  sbom?: string;
+}
+
+export interface ManifestSignature {
+  format: "codex-manifest-signature";
+  formatVersion: "0.1.0";
+  algorithm: "Ed25519";
+  keyId: string;
+  signedFile: string;
+  signature: string;
+}
+
 function releasePaths(manifest: ReleaseManifest): string[] {
   return [...new Set([...manifest.artifacts, ...manifest.conformanceFixtures])].sort();
 }
@@ -46,9 +66,29 @@ function resolveInside(rootDirectory: string, relativePath: string): string {
   const target = resolve(root, relativePath);
   const prefix = root.endsWith(sep) ? root : `${root}${sep}`;
   if (target !== root && !target.startsWith(prefix)) {
-    throw new Error(`Release path escapes repository root: ${relativePath}`);
+    throw new Error(`Path escapes root directory: ${relativePath}`);
   }
   return target;
+}
+
+async function assertRegularFile(rootDirectory: string, relativePath: string): Promise<string> {
+  const path = resolveInside(rootDirectory, relativePath);
+  const stats = await lstat(path);
+  if (!stats.isFile() || stats.isSymbolicLink()) throw new Error(`Unsafe package entry: ${relativePath}`);
+  return path;
+}
+
+async function walkFiles(rootDirectory: string, currentDirectory = rootDirectory): Promise<string[]> {
+  const result: string[] = [];
+  for (const entry of await readdir(currentDirectory, { withFileTypes: true })) {
+    const absolute = resolve(currentDirectory, entry.name);
+    const rel = relative(rootDirectory, absolute).split(sep).join("/");
+    if (entry.isSymbolicLink()) throw new Error(`Unsafe package entry: ${rel}`);
+    if (entry.isDirectory()) result.push(...await walkFiles(rootDirectory, absolute));
+    else if (entry.isFile()) result.push(rel);
+    else throw new Error(`Unsafe package entry: ${rel}`);
+  }
+  return result.sort();
 }
 
 export async function readReleaseManifest(manifestPath: string): Promise<ReleaseManifest> {
@@ -60,18 +100,14 @@ export async function readReleaseManifest(manifestPath: string): Promise<Release
 }
 
 export async function sha256File(filePath: string): Promise<string> {
-  const data = await readFile(filePath);
-  return createHash("sha256").update(data).digest("hex");
+  return createHash("sha256").update(await readFile(filePath)).digest("hex");
 }
 
-export async function prepareReleaseManifest(
-  manifestPath: string,
-  rootDirectory = process.cwd()
-): Promise<ReleaseManifest> {
+export async function prepareReleaseManifest(manifestPath: string, rootDirectory = process.cwd()): Promise<ReleaseManifest> {
   const manifest = await readReleaseManifest(manifestPath);
   const checksums: Record<string, string> = {};
   for (const relativePath of releasePaths(manifest)) {
-    checksums[relativePath] = await sha256File(resolveInside(rootDirectory, relativePath));
+    checksums[relativePath] = await sha256File(await assertRegularFile(rootDirectory, relativePath));
   }
   return { ...manifest, checksums };
 }
@@ -93,38 +129,42 @@ export async function verifyReleaseManifest(
 ): Promise<ReleaseVerificationReport> {
   const manifest = await readReleaseManifest(manifestPath);
   const items: ReleaseVerificationItem[] = [];
-
   for (const relativePath of releasePaths(manifest)) {
     const expected = manifest.checksums?.[relativePath];
     if (!expected) {
       items.push({ path: relativePath, ok: false, reason: "missing-checksum" });
       continue;
     }
-
     try {
-      const actual = await sha256File(resolveInside(rootDirectory, relativePath));
-      items.push({
-        path: relativePath,
-        expected,
-        actual,
-        ok: actual === expected,
-        ...(actual === expected ? {} : { reason: "checksum-mismatch" as const })
-      });
+      const actual = await sha256File(await assertRegularFile(rootDirectory, relativePath));
+      items.push({ path: relativePath, expected, actual, ok: actual === expected, ...(actual === expected ? {} : { reason: "checksum-mismatch" as const }) });
     } catch (error) {
       const code = error && typeof error === "object" && "code" in error ? String(error.code) : "";
-      if (code === "ENOENT") {
-        items.push({ path: relativePath, expected, ok: false, reason: "missing-file" });
-      } else {
-        throw error;
-      }
+      items.push({ path: relativePath, expected, ok: false, reason: code === "ENOENT" ? "missing-file" : "unsafe-entry" });
     }
   }
+  return { valid: items.every((item) => item.ok), releaseId: manifest.id, version: manifest.version, items };
+}
 
+export function createCycloneDxSbom(manifest: ReleaseManifest): object {
+  const timestamp = manifest.releasedAt ?? "1970-01-01T00:00:00.000Z";
   return {
-    valid: items.every((item) => item.ok),
-    releaseId: manifest.id,
-    version: manifest.version,
-    items
+    bomFormat: "CycloneDX",
+    specVersion: "1.7",
+    serialNumber: `urn:uuid:${createHash("sha256").update(`${manifest.id}:${manifest.version}`).digest("hex").slice(0, 8)}-0000-4000-8000-${createHash("sha256").update(manifest.id).digest("hex").slice(0, 12)}`,
+    version: 1,
+    metadata: {
+      timestamp,
+      component: { type: "application", name: manifest.name, version: manifest.version, "bom-ref": manifest.id }
+    },
+    components: Object.entries(manifest.components).sort(([a], [b]) => a.localeCompare(b)).map(([name, version]) => ({
+      type: "library",
+      name: `@codex/${name}`,
+      version,
+      "bom-ref": `pkg:npm/@codex/${name}@${version}`,
+      purl: `pkg:npm/%40codex/${name}@${version}`
+    })),
+    dependencies: [{ ref: manifest.id, dependsOn: Object.entries(manifest.components).sort(([a], [b]) => a.localeCompare(b)).map(([name, version]) => `pkg:npm/@codex/${name}@${version}`) }]
   };
 }
 
@@ -138,43 +178,108 @@ export async function buildReleasePackage(
     const failures = verification.items.filter((item) => !item.ok).map((item) => `${item.path}: ${item.reason}`).join(", ");
     throw new Error(`Release verification failed: ${failures}`);
   }
-
   const manifest = await readReleaseManifest(manifestPath);
   const root = resolve(rootDirectory);
   const output = resolveInside(root, outputDirectory);
-  if (output === root) {
-    throw new Error("Package output directory must not be the repository root.");
-  }
+  if (output === root) throw new Error("Package output directory must not be the repository root.");
   await rm(output, { recursive: true, force: true });
   await mkdir(output, { recursive: true });
-
   for (const relativePath of releasePaths(manifest)) {
-    const source = resolveInside(root, relativePath);
     const destination = resolveInside(output, relativePath);
     await mkdir(dirname(destination), { recursive: true });
-    await copyFile(source, destination);
+    await copyFile(await assertRegularFile(root, relativePath), destination);
   }
-
   await copyFile(resolve(manifestPath), resolve(output, "manifest.json"));
-  const checksumLines = releasePaths(manifest).map((relativePath) => `${manifest.checksums?.[relativePath]}  ${relativePath}`);
-  await writeFile(resolve(output, "CHECKSUMS.sha256"), `${checksumLines.join("\n")}\n`, "utf8");
-  await writeFile(
-    resolve(output, "codex-package.json"),
-    `${JSON.stringify({
-      format: "codex-package",
-      formatVersion: "0.1.0",
-      releaseId: manifest.id,
-      releaseVersion: manifest.version,
-      manifest: "manifest.json",
-      checksums: "CHECKSUMS.sha256"
-    }, null, 2)}\n`,
-    "utf8"
-  );
-
-  return {
-    outputDirectory: output,
-    fileCount: releasePaths(manifest).length + 3,
+  await writeFile(resolve(output, "CHECKSUMS.sha256"), `${releasePaths(manifest).map((path) => `${manifest.checksums?.[path]}  ${path}`).join("\n")}\n`, "utf8");
+  await writeFile(resolve(output, "bom.cdx.json"), `${JSON.stringify(createCycloneDxSbom(manifest), null, 2)}\n`, "utf8");
+  const descriptor: PackageDescriptor = {
+    format: "codex-package",
+    formatVersion: "0.1.0",
     releaseId: manifest.id,
-    version: manifest.version
+    releaseVersion: manifest.version,
+    manifest: "manifest.json",
+    checksums: "CHECKSUMS.sha256",
+    sbom: "bom.cdx.json"
   };
+  await writeFile(resolve(output, "codex-package.json"), `${JSON.stringify(descriptor, null, 2)}\n`, "utf8");
+  return { outputDirectory: output, fileCount: releasePaths(manifest).length + 4, releaseId: manifest.id, version: manifest.version };
+}
+
+export async function verifyReleasePackage(packageDirectory: string): Promise<ReleaseVerificationReport> {
+  const root = resolve(packageDirectory);
+  const descriptor = JSON.parse(await readFile(await assertRegularFile(root, "codex-package.json"), "utf8")) as PackageDescriptor;
+  if (descriptor.format !== "codex-package") throw new Error("Invalid CODEX package descriptor.");
+  const manifestPath = await assertRegularFile(root, descriptor.manifest);
+  const report = await verifyReleaseManifest(manifestPath, root);
+  const expectedFiles = new Set([
+    ...releasePaths(await readReleaseManifest(manifestPath)),
+    descriptor.manifest,
+    descriptor.checksums,
+    "codex-package.json",
+    ...(descriptor.sbom ? [descriptor.sbom] : [])
+  ]);
+  for (const path of await walkFiles(root)) {
+    if (!expectedFiles.has(path)) report.items.push({ path, ok: false, reason: "unexpected-file" });
+  }
+  report.valid = report.items.every((item) => item.ok);
+  return report;
+}
+
+export async function unpackReleasePackage(packageDirectory: string, outputDirectory: string): Promise<ReleasePackageResult> {
+  const report = await verifyReleasePackage(packageDirectory);
+  if (!report.valid) throw new Error("Package verification failed; refusing to unpack.");
+  const source = resolve(packageDirectory);
+  const output = resolve(outputDirectory);
+  if (source === output) throw new Error("Package source and output directories must differ.");
+  await rm(output, { recursive: true, force: true });
+  await mkdir(output, { recursive: true });
+  const files = await walkFiles(source);
+  for (const path of files) {
+    const destination = resolveInside(output, path);
+    await mkdir(dirname(destination), { recursive: true });
+    await copyFile(await assertRegularFile(source, path), destination);
+  }
+  return { outputDirectory: output, fileCount: files.length, releaseId: report.releaseId, version: report.version };
+}
+
+export function generateEd25519KeyPair(): { privateKey: string; publicKey: string; keyId: string } {
+  const pair = generateKeyPairSync("ed25519");
+  const privateKey = pair.privateKey.export({ type: "pkcs8", format: "pem" }).toString();
+  const publicKey = pair.publicKey.export({ type: "spki", format: "pem" }).toString();
+  const keyId = `sha256:${createHash("sha256").update(publicKey).digest("hex")}`;
+  return { privateKey, publicKey, keyId };
+}
+
+export async function signReleaseManifest(manifestPath: string, privateKeyPath: string, signaturePath: string): Promise<ManifestSignature> {
+  const data = await readFile(manifestPath);
+  const privateKey = await readFile(privateKeyPath, "utf8");
+  const publicKey = generateKeyPairSync;
+  void publicKey;
+  const signature = sign(null, data, privateKey).toString("base64");
+  const envelope: ManifestSignature = {
+    format: "codex-manifest-signature",
+    formatVersion: "0.1.0",
+    algorithm: "Ed25519",
+    keyId: optionKeyId(privateKey),
+    signedFile: manifestPath,
+    signature
+  };
+  await writeFile(signaturePath, `${JSON.stringify(envelope, null, 2)}\n`, "utf8");
+  return envelope;
+}
+
+function optionKeyId(privateKey: string): string {
+  const { createPublicKey } = requireCrypto();
+  const publicPem = createPublicKey(privateKey).export({ type: "spki", format: "pem" }).toString();
+  return `sha256:${createHash("sha256").update(publicPem).digest("hex")}`;
+}
+
+function requireCrypto(): typeof import("node:crypto") {
+  return { createHash, generateKeyPairSync, sign, verify } as typeof import("node:crypto");
+}
+
+export async function verifyReleaseManifestSignature(manifestPath: string, signaturePath: string, publicKeyPath: string): Promise<boolean> {
+  const envelope = JSON.parse(await readFile(signaturePath, "utf8")) as ManifestSignature;
+  if (envelope.format !== "codex-manifest-signature" || envelope.algorithm !== "Ed25519") return false;
+  return verify(null, await readFile(manifestPath), await readFile(publicKeyPath, "utf8"), Buffer.from(envelope.signature, "base64"));
 }
