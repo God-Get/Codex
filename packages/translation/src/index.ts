@@ -1,12 +1,8 @@
 import type { CodexObject, CodexProject, CodexTranslationObject, LifecycleStatus } from "@codex/core";
 import { identifierPattern, isRegisteredLanguage, type RegistryData } from "@codex/registry";
+import { TranslationError } from "./errors.js";
 
-export class TranslationError extends Error {
-  constructor(readonly code: string, message: string) {
-    super(message);
-    this.name = "TranslationError";
-  }
-}
+export { TranslationError } from "./errors.js";
 
 export interface CreateTranslationOptions {
   id: string;
@@ -180,3 +176,5 @@ export function analyzeTranslationStatus(project: CodexProject, registry: Regist
     .map((language) => ({ sourceId: source.id, language })));
   return { projectId: project.id, expectedLanguages, existingLanguages, sources, missing, statuses, orphans, invalidProvenance };
 }
+
+export * from "./automation.js";

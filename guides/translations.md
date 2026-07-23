@@ -1,6 +1,6 @@
 # Translation model and workflow
 
-The first translation stage is deterministic and local. It defines storage, provenance, validation, authoring, and status reporting without calling an AI or machine-translation service.
+CODEX combines a stable translation object model with an opt-in automated workflow. Storage, validation, provenance, status, QA, and offline fixtures remain deterministic. External providers are contacted only by `translation run` with a non-static provider configuration.
 
 ## Translation object
 
@@ -57,12 +57,94 @@ node apps/cli/dist/index.js translation status reference/hermetica --json
 
 Status reports source objects, existing languages, missing profile languages, lifecycle counts, orphan translations, and invalid provenance. Missing coverage is computed from the active profile; it does not create files.
 
-## First-stage limits
+## Automated translation
 
-- no OpenAI, Google Translate, DeepL, or other external API;
-- no automatic sentence segmentation or alignment;
-- no terminology memory, quality scoring, or reviewer assignment;
-- no automatic promotion from `draft`;
-- no background jobs or credential management.
+Create a configuration:
 
-Future automation can consume this model, but generated text must still satisfy the same provenance and validation rules.
+```json
+{
+  "$schema": "../../schemas/translation-automation.schema.json",
+  "provider": {
+    "kind": "openai-compatible",
+    "endpoint": "https://provider.example/v1/chat/completions",
+    "model": "translation-model",
+    "apiKeyEnv": "CODEX_TRANSLATION_API_KEY"
+  },
+  "glossaryFile": "glossary.json",
+  "memoryFile": ".codex-ci/translation-memory.json",
+  "outputDirectory": "translations",
+  "concurrency": 2,
+  "requestsPerMinute": 60,
+  "maxRetries": 2
+}
+```
+
+Preview without credentials or network access:
+
+```bash
+codex translation run reference/hermetica \
+  --config reference/hermetica/translation.config.json \
+  --dry-run --json
+```
+
+Translate one object or every missing profile target:
+
+```bash
+codex translation run reference/hermetica \
+  --config reference/hermetica/translation.config.json \
+  --source FRAG-0001 --language en --json
+
+codex translation run reference/hermetica \
+  --config reference/hermetica/translation.config.json --json
+```
+
+Existing files are never replaced without `--force`. Batch output is all-or-nothing unless `--allow-partial` is explicit. Successful provider results are written to translation memory even when another batch item fails, preventing duplicate billable requests on retry.
+
+The built-in `static` provider reads translations from a JSON map and is intended for fixtures, air-gapped workflows, and CI. The `openai-compatible` provider uses HTTPS, a deterministic temperature of zero, bounded timeout/retries, concurrency control, and requests-per-minute throttling. The API key is read from `apiKeyEnv`; its value is not persisted or included in output.
+
+## Glossary, memory, and QA
+
+Glossaries are arrays of `{source,target,sourceLanguage?,targetLanguage?}`. Applicable terms are sent to the provider and enforced after generation.
+
+Translation-memory keys include normalized source text, source and target language, and applicable glossary constraints. A source or glossary change therefore invalidates the cached entry.
+
+QA rejects:
+
+- empty or unchanged output;
+- lost `{{placeholder}}`, `${placeholder}`, or printf placeholders;
+- required glossary targets that are absent.
+
+An anomalous length ratio produces a warning and lowers the score without blocking the draft. Generated Markdown records provider/model provenance, timestamp, QA score, and `qaPassed`.
+
+```bash
+codex translation qa reference/hermetica \
+  --config reference/hermetica/translation.config.json --json
+codex translation memory \
+  --file reference/hermetica/.codex-ci/translation-memory.json --json
+```
+
+## Human review
+
+Automated output always starts as `draft`; automation never publishes it. A reviewer can move a file to `review` or `approved`. Approval reruns the local QA gate:
+
+```bash
+codex translation review \
+  --file reference/hermetica/translations/en/frag-0001.md \
+  --status review --reviewer "A. Reviewer" --json
+codex translation review \
+  --file reference/hermetica/translations/en/frag-0001.md \
+  --status approved --reviewer "A. Reviewer" \
+  --config reference/hermetica/translation.config.json --json
+```
+
+The command enforces `draft → review → approved`, records `reviewedBy` and `reviewedAt`, and allows an approved translation to return to draft for revision. Publication remains governed by the normal CODEX lifecycle and validator.
+
+## Operational limits
+
+- Provider quality and pricing remain properties of the configured service.
+- The current adapter targets the common chat-completions wire format; provider-specific batch APIs require an additional adapter.
+- QA is structural and terminology-based, not a substitute for expert semantic review.
+- Sentence-level alignment and collaborative reviewer assignment are not included.
+- The CLI is synchronous; durable background queues belong in a hosting integration.
+
+Generated text must always satisfy the same provenance and validation rules as human-authored translations.

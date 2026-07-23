@@ -34,6 +34,13 @@ jobs:
       - run: npm run check
       - run: npm test
       - run: npm run doctor
+      - run: npm run translation:status
+      - run: npm run translation:dry-run
+      - run: npm run translation:fixture-run > .codex-ci/translation-run.json
+      - run: test -s .codex-ci/translation-en.md
+      - run: test -s .codex-ci/translation-run.json
+      - run: npm run translation:qa
+      - run: npm run translation:memory
       - run: npm run authoring:compile
       - run: test -s examples/authoring/project.json
       - run: npm run authoring:compile:json > .codex-ci/authoring.json
@@ -101,4 +108,7 @@ jobs:
             .codex-ci/authoring.json
             .codex-ci/hermetica-import.json
             .codex-ci/hermetica-query.json
+            .codex-ci/translation-run.json
+            .codex-ci/translation-en.md
+            reference/hermetica/.codex-ci/translation-memory.json
           if-no-files-found: error

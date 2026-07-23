@@ -1,0 +1,43 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex.example/schemas/translation-automation.schema.json",
+  "title": "CODEX Translation Automation Configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["provider"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "provider": {
+      "oneOf": [
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "dataFile"],
+          "properties": {
+            "kind": {"const": "static"},
+            "dataFile": {"type": "string", "minLength": 1}
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["kind", "endpoint", "model", "apiKeyEnv"],
+          "properties": {
+            "kind": {"const": "openai-compatible"},
+            "endpoint": {"type": "string", "pattern": "^https://"},
+            "model": {"type": "string", "minLength": 1},
+            "apiKeyEnv": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"},
+            "timeoutMs": {"type": "integer", "minimum": 1000, "maximum": 600000},
+            "organization": {"type": "string", "minLength": 1}
+          }
+        }
+      ]
+    },
+    "glossaryFile": {"type": "string", "minLength": 1},
+    "memoryFile": {"type": "string", "minLength": 1},
+    "outputDirectory": {"type": "string", "minLength": 1},
+    "concurrency": {"type": "integer", "minimum": 1, "maximum": 16},
+    "requestsPerMinute": {"type": "number", "exclusiveMinimum": 0},
+    "maxRetries": {"type": "integer", "minimum": 0, "maximum": 10}
+  }
+}

@@ -27,6 +27,23 @@ async function fixture() {
   return root;
 }
 
+async function automationFixture() {
+  const root = await fixture();
+  await mkdir(path.join(root, "automation"), { recursive: true });
+  await writeFile(path.join(root, "automation", "static.json"), JSON.stringify({
+    translations: { "FRAGMENT-0001:en": "English translation.", "FRAGMENT-0001:ru": "Переведённый текст." }
+  }), "utf8");
+  const config = path.join(root, "automation", "config.json");
+  await writeFile(config, JSON.stringify({
+    provider: { kind: "static", dataFile: "static.json" },
+    memoryFile: ".codex-ci/translation-memory.json",
+    outputDirectory: "translations",
+    concurrency: 2,
+    maxRetries: 1
+  }), "utf8");
+  return { root, config };
+}
+
 test("translation create writes Markdown and returns CODEX 0.2 JSON envelope", async () => {
   const root = await fixture();
   const output = path.join(root, "translations", "ru", "source.md");
@@ -67,4 +84,112 @@ test("translation status reports sources, missing translations, and JSON envelop
   assert.equal(payload.result.sources[0].id, "FRAGMENT-0001");
   assert.deepEqual(payload.result.missing, [{ sourceId: "FRAGMENT-0001", language: "en" }]);
   assert.equal(payload.result.orphans.length, 0);
+});
+
+test("translation run generates Markdown, persists memory, and reuses the cache", async () => {
+  const { root, config } = await automationFixture();
+  const output = path.join(root, "translations", "ru", "source.md");
+  const args = [
+    "translation", "run", root,
+    "--config", config,
+    "--source", "FRAGMENT-0001",
+    "--language", "ru",
+    "--id", "TRANSLATION-0001",
+    "--output", output,
+    "--json"
+  ];
+  const first = await run(args);
+  assert.equal(first.code, 0, first.stderr);
+  const firstPayload = JSON.parse(first.stdout);
+  assert.equal(firstPayload.apiVersion, "0.2");
+  assert.equal(firstPayload.command, "translation.run");
+  assert.equal(firstPayload.result.generated, 1);
+  assert.equal(firstPayload.result.cacheHits, 0);
+  const markdown = await readFile(output, "utf8");
+  assert.match(markdown, /translationMode: machine/);
+  assert.match(markdown, /qaPassed: true/);
+
+  const second = await run([...args, "--force"]);
+  assert.equal(second.code, 0, second.stderr);
+  assert.equal(JSON.parse(second.stdout).result.cacheHits, 1);
+});
+
+test("translation run dry-run does not require provider credentials", async () => {
+  const root = await fixture();
+  const config = path.join(root, "external.json");
+  await writeFile(config, JSON.stringify({
+    provider: {
+      kind: "openai-compatible",
+      endpoint: "https://translations.example/v1/chat/completions",
+      model: "translator",
+      apiKeyEnv: "CODEX_TEST_MISSING_KEY"
+    }
+  }), "utf8");
+  const response = await run([
+    "translation", "run", root,
+    "--config", config,
+    "--source", "FRAGMENT-0001",
+    "--language", "ru",
+    "--dry-run",
+    "--json"
+  ]);
+  assert.equal(response.code, 0, response.stderr);
+  assert.equal(JSON.parse(response.stdout).result.provider, "openai-compatible");
+});
+
+test("translation qa, review, and memory commands use JSON envelopes", async () => {
+  const { root, config } = await automationFixture();
+  const output = path.join(root, "translations", "ru", "source.md");
+  const generated = await run([
+    "translation", "run", root,
+    "--config", config,
+    "--source", "FRAGMENT-0001",
+    "--language", "ru",
+    "--id", "TRANSLATION-0001",
+    "--output", output,
+    "--json"
+  ]);
+  assert.equal(generated.code, 0, generated.stderr);
+
+  const qa = await run(["translation", "qa", root, "--json"]);
+  assert.equal(qa.code, 0, qa.stderr);
+  assert.equal(JSON.parse(qa.stdout).result.passed, true);
+
+  const prematureApproval = await run([
+    "translation", "review",
+    "--file", output,
+    "--status", "approved",
+    "--reviewer", "Reviewer",
+    "--json"
+  ]);
+  assert.equal(prematureApproval.code, 1);
+  assert.equal(JSON.parse(prematureApproval.stderr).diagnostic.code, "CODEX_TRANSLATION_REVIEW_BLOCKED");
+
+  const review = await run([
+    "translation", "review",
+    "--file", output,
+    "--status", "review",
+    "--reviewer", "Reviewer",
+    "--json"
+  ]);
+  assert.equal(review.code, 0, review.stderr);
+  assert.equal(JSON.parse(review.stdout).result.status, "review");
+  const approval = await run([
+    "translation", "review",
+    "--file", output,
+    "--status", "approved",
+    "--reviewer", "Reviewer",
+    "--json"
+  ]);
+  assert.equal(approval.code, 0, approval.stderr);
+  assert.equal(JSON.parse(approval.stdout).result.status, "approved");
+  assert.match(await readFile(output, "utf8"), /reviewedBy: "Reviewer"/);
+
+  const memory = await run([
+    "translation", "memory",
+    "--file", path.join(root, ".codex-ci", "translation-memory.json"),
+    "--json"
+  ]);
+  assert.equal(memory.code, 0, memory.stderr);
+  assert.equal(JSON.parse(memory.stdout).result.entries, 1);
 });

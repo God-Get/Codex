@@ -1,0 +1,13 @@
+{
+  "$schema": "../../schemas/translation-automation.schema.json",
+  "provider": {
+    "kind": "static",
+    "dataFile": "fixtures/static-provider.json"
+  },
+  "glossaryFile": "fixtures/glossary.json",
+  "memoryFile": ".codex-ci/translation-memory.json",
+  "outputDirectory": "translations",
+  "concurrency": 2,
+  "requestsPerMinute": 60,
+  "maxRetries": 2
+}

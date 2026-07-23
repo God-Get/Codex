@@ -20,7 +20,7 @@ The repository contains:
 - `@codex/graph` — canonical runtime graph, indexes, traversal, roots, reachability, and statistics;
 - `@codex/importer` — deterministic Markdown/YAML importer and `codex-import` CLI;
 - `@codex/query` — query parser/executor and `codex-query` CLI;
-- `@codex/translation` — formal translation scaffolding, provenance, coverage, and status analysis;
+- `@codex/translation` — translation modeling, provider orchestration, memory, glossary enforcement, QA, provenance, and coverage;
 - `@codex/release` — deterministic manifests, SHA-256 verification, safe packaging/unpacking, CycloneDX SBOM, and Ed25519 signatures;
 - `@codex/cli` — integrated validation, inspection, graph, diagnostics, profile, authoring, release, package, and doctor commands;
 - `reference/hermetica` — the multilingual HERMETICA reference corpus.
@@ -32,9 +32,12 @@ node apps/cli/dist/index.js translation create \
   --source FRAG-0001 --language ru --id TRANSLATION-0001 \
   --output reference/hermetica/translations/ru/ch-01.md
 node apps/cli/dist/index.js translation status reference/hermetica --json
+node apps/cli/dist/index.js translation run reference/hermetica \
+  --config reference/hermetica/translation.config.json --dry-run --json
+node apps/cli/dist/index.js translation qa reference/hermetica --json
 ```
 
-The first stage is model-only: no external AI or machine-translation API is used. See `guides/translations.md` for the object model, provenance rules, validation, CLI behavior, and current limitations.
+Automation supports deterministic offline fixtures and opt-in OpenAI-compatible HTTPS providers. Credentials are read only from the configured environment variable; dry-run and CI never require or call an external service. See `guides/translations.md` for provider configuration, memory, QA, review, provenance, and operational safeguards.
 
 ## Requirements
 

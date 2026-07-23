@@ -2,6 +2,20 @@
 
 All notable changes to CODEX are documented here.
 
+## [Unreleased]
+
+### Added
+
+- formal CODEX translation objects, provenance validation, `translation-of`, HERMETICA translation rules, fixtures, and stable diagnostics;
+- `translation create`, `status`, `run`, `qa`, `review`, and `memory` CLI workflows using the CODEX 0.2 envelope;
+- provider-neutral automation with offline static fixtures and an opt-in OpenAI-compatible HTTPS adapter;
+- bounded retries, concurrency and rate limits, translation memory, glossary enforcement, structural QA, and human review gates.
+
+### Security
+
+- provider credentials are read from a named environment variable and are never persisted in objects or memory;
+- automated output remains draft until an identified reviewer advances it through review and approval.
+
 ## [0.2.0] — 2026-07-21
 
 CODEX 0.2 establishes the first complete implementation baseline for portable digital scholarly editions.
