@@ -10,6 +10,7 @@
     {"path": "packages/authoring"},
     {"path": "packages/graph"},
     {"path": "packages/query"},
+    {"path": "packages/translation"},
     {"path": "packages/importer"},
     {"path": "apps/cli"}
   ]

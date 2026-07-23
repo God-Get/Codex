@@ -1,0 +1,16 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://codex.example/schemas/translation-rules.schema.json",
+  "title": "CODEX Translation Rules",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["registry", "version", "sourceTypes", "targetLanguages", "requiredMetadata"],
+  "properties": {
+    "$schema": {"type": "string"},
+    "registry": {"const": "codex.translation-rules"},
+    "version": {"type": "string"},
+    "sourceTypes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+    "targetLanguages": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 2}},
+    "requiredMetadata": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+  }
+}

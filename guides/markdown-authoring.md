@@ -19,14 +19,15 @@ Documents begin with flat `key: value` front matter delimited by `---`. Arrays a
 
 ```markdown
 ---
-id: translation.poimandres.en
+id: TRANSLATION-0001
 type: translation
 title: Poimandres English Translation
 version: 1.0.0
 status: draft
 language: en
-derivedFrom: ["source.poimandres.grc"]
-relations: [{"type":"translates","target":"source.poimandres.grc"}]
+derivedFrom: ["SOURCE-0001"]
+relations: [{"type":"translation-of","target":"SOURCE-0001"}]
+translationMode: human
 translator: CODEX HERMETICA
 ---
 
@@ -121,3 +122,5 @@ Current codes:
 | `AUTH-1009` | Project, path, filesystem, or duplicate-object failure |
 
 The compiler rejects missing or unterminated front matter, malformed keys, duplicate keys, invalid relation arrays, invalid string arrays, duplicate object identifiers, and paths escaping the authoring root. Semantic and profile conformance remain the responsibility of the normal CODEX validator after compilation.
+
+See [Translation model and workflow](translations.md) for provenance, validation, scaffolding, and status commands.

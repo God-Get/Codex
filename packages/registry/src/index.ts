@@ -12,7 +12,7 @@ export const objectTypes = [
 
 export const relationTypes = [
   "contains", "belongsTo", "references", "quotes", "translates", "defines", "explains",
-  "extends", "derivedFrom", "dependsOn", "supersedes", "relatedTo"
+  "extends", "derivedFrom", "translation-of", "dependsOn", "supersedes", "relatedTo"
 ] as const;
 
 export const relationConstraints = {
@@ -21,6 +21,7 @@ export const relationConstraints = {
     targets: ["work", "edition", "volume", "chapter", "section", "fragment", "translation", "commentary", "source", "term", "document", "requirement", "validation"]
   },
   translates: { sources: ["translation"], targets: ["work", "edition", "volume", "chapter", "section", "fragment", "source"] },
+  "translation-of": { sources: ["translation"], targets: [] },
   defines: { sources: ["term", "document"], targets: ["term"] },
   explains: { sources: ["commentary", "document"], targets: ["work", "edition", "volume", "chapter", "section", "fragment", "term"] }
 } as const;
@@ -37,6 +38,12 @@ export interface RelationConstraint {
   disallowSelfReference?: boolean;
 }
 
+export interface TranslationRules {
+  sourceTypes: readonly string[];
+  targetLanguages: readonly string[];
+  requiredMetadata: readonly string[];
+}
+
 export interface RegistryData {
   objectTypes: readonly string[];
   relationTypes: readonly string[];
@@ -44,6 +51,7 @@ export interface RegistryData {
   validationProfiles: readonly string[];
   languages: readonly string[];
   relationConstraints: Readonly<Record<string, RelationConstraint>>;
+  translationRules: TranslationRules;
   diagnostics: readonly DiagnosticDefinition[];
 }
 
@@ -57,6 +65,11 @@ interface RawRelationConstraint {
 }
 interface RelationConstraintFile { constraints: Record<string, RawRelationConstraint>; }
 interface DiagnosticRegistryFile { diagnostics: DiagnosticDefinition[]; }
+interface TranslationRuleFile {
+  sourceTypes: string[];
+  targetLanguages: string[];
+  requiredMetadata: string[];
+}
 
 function readJson<T>(path: string): T {
   return JSON.parse(readFileSync(path, "utf8")) as T;
@@ -80,6 +93,7 @@ export function loadRegistry(rootDirectory = process.cwd()): RegistryData {
     validationProfiles: readJson<RegistryListFile>(resolve(registryDirectory, "validation-profiles.json")).values,
     languages: readJson<RegistryListFile>(resolve(registryDirectory, "languages.json")).values,
     relationConstraints: normalizeRelationConstraints(relationConstraintFile.constraints),
+    translationRules: readJson<TranslationRuleFile>(resolve(registryDirectory, "translation-rules.json")),
     diagnostics: readJson<DiagnosticRegistryFile>(resolve(registryDirectory, "diagnostic-codes.json")).diagnostics
   };
 }
@@ -91,6 +105,11 @@ export const defaultRegistry: RegistryData = {
   validationProfiles,
   languages,
   relationConstraints,
+  translationRules: {
+    sourceTypes: ["work", "edition", "volume", "chapter", "section", "fragment", "source", "translation"],
+    targetLanguages: [],
+    requiredMetadata: []
+  },
   diagnostics: []
 };
 

@@ -7,6 +7,7 @@ status: draft
 language: en
 derivedFrom: ["SRC-0001"]
 relations: [{"type":"translates","target":"SRC-0001"}]
+translationMode: manual
 translator: CODEX HERMETICA
 ---
 

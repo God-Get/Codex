@@ -17,7 +17,7 @@ test("HERMETICA reference corpus compiles into runtime graph", async () => {
   ]);
   assert.equal(result.graph.getObject("WORK-0001")?.type, "work");
   assert.deepEqual(result.graph.descendants("WORK-0001", ["contains"]).map((object) => object.id), ["FRAG-0001"]);
-  assert.equal(result.graph.edgesTo("FRAG-0001").length, 2);
+  assert.equal(result.graph.edgesTo("FRAG-0001").length, 3);
 });
 
 test("HERMETICA reference corpus supports translation queries", async () => {

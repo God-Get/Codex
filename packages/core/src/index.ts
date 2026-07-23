@@ -25,6 +25,19 @@ export interface CodexObject {
   metadata?: Record<string, unknown>;
 }
 
+export interface CodexTranslationObject extends CodexObject {
+  type: "translation";
+  language: string;
+  derivedFrom: [string];
+}
+
+export function isTranslationObject(object: CodexObject): object is CodexTranslationObject {
+  return object.type === "translation"
+    && typeof object.language === "string"
+    && Array.isArray(object.derivedFrom)
+    && object.derivedFrom.length === 1;
+}
+
 export interface CodexProject {
   codexVersion: string;
   id: string;

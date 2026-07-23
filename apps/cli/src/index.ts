@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 
-import { access, readFile, writeFile } from "node:fs/promises";
+import { access, mkdir, readFile, writeFile } from "node:fs/promises";
+import { dirname, parse, relative, resolve } from "node:path";
 import process from "node:process";
 import { authoringDiagnostic, compileAuthoringProject } from "@codex/authoring";
 import type { CodexProject, Diagnostic, ValidationProfile, ValidationReport } from "@codex/core";
+import { compileProject } from "@codex/importer";
 import { listProfiles, loadProfile, resolveProfile } from "@codex/profiles";
 import { isRegisteredValidationProfile, loadRegistry, type RegistryData } from "@codex/registry";
 import {
@@ -17,6 +19,7 @@ import {
   writePreparedReleaseManifest
 } from "@codex/release";
 import { validateProjectSchema } from "@codex/schema";
+import { analyzeTranslationStatus, createTranslationDraft, TranslationError } from "@codex/translation";
 import { buildProjectGraph, graphToDot, inspectProject, validateProject } from "@codex/validator";
 
 const CLI_API_VERSION = "0.2";
@@ -30,7 +33,11 @@ type CliDiagnostic = {
 };
 
 function optionValue(args: string[], name: string): string | undefined {
-  return args.find((arg) => arg.startsWith(`${name}=`))?.slice(name.length + 1);
+  const inline = args.find((arg) => arg.startsWith(`${name}=`))?.slice(name.length + 1);
+  if (inline !== undefined) return inline;
+  const index = args.indexOf(name);
+  const value = index >= 0 ? args[index + 1] : undefined;
+  return value && !value.startsWith("--") ? value : undefined;
 }
 
 function positionalValue(args: string[]): string | undefined {
@@ -233,6 +240,7 @@ async function profilesCommand(action: string | undefined, args: string[]): Prom
           objectTypes: resolved.registry.objectTypes,
           relationTypes: resolved.registry.relationTypes,
           languages: resolved.registry.languages,
+          translationRules: resolved.registry.translationRules,
           diagnostics: resolved.registry.diagnostics
         }
       };
@@ -252,6 +260,90 @@ async function profilesCommand(action: string | undefined, args: string[]): Prom
     return;
   }
   emitFailure(command, { code: "CLI-1302", message: "Usage: codex profiles list|inspect|validate ..." }, json, 2);
+}
+
+async function pathExists(path: string): Promise<boolean> {
+  try {
+    await access(path);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function discoverProjectRoot(outputPath: string): Promise<string> {
+  let current = dirname(resolve(outputPath));
+  const root = parse(current).root;
+  while (true) {
+    if (await pathExists(resolve(current, "project.yml")) || await pathExists(resolve(current, "project.yaml"))) return current;
+    if (current === root) break;
+    current = dirname(current);
+  }
+  throw new TranslationError("CLI-1902", "Could not discover a project.yml/project.yaml ancestor; pass --root.");
+}
+
+async function translationCommand(action: string | undefined, args: string[]): Promise<void> {
+  const command = `translation.${action ?? "unknown"}`;
+  const json = args.includes("--json");
+  try {
+    if (action === "create") {
+      const sourceId = optionValue(args, "--source");
+      const language = optionValue(args, "--language");
+      const id = optionValue(args, "--id");
+      const output = optionValue(args, "--output");
+      if (!sourceId || !language || !id || !output) throw new TranslationError("CLI-1901", "Usage: codex translation create --source ID --language CODE --id ID --output FILE [--root DIR] [--force] [--json]");
+      const outputPath = resolve(output);
+      const root = resolve(optionValue(args, "--root") ?? await discoverProjectRoot(outputPath));
+      const outputExists = await pathExists(outputPath);
+      if (outputExists && !args.includes("--force")) throw new TranslationError("CLI-1903", `Refusing to overwrite existing file without --force: ${outputPath}`);
+      const compiled = await compileProject(root);
+      const context = resolveValidationContext(compiled.project.profile ?? "core");
+      const relativeOutput = relative(root, outputPath).replaceAll("\\", "/");
+      const existingAtOutput = compiled.project.objects.find((object) => object.metadata?.source && (object.metadata.source as { file?: unknown }).file === relativeOutput);
+      if (outputExists && args.includes("--force") && existingAtOutput?.id !== id) throw new TranslationError("CODEX_TRANSLATION_ID_EXISTS", `Existing output belongs to a different object: ${existingAtOutput?.id ?? relativeOutput}`);
+      const project = outputExists && args.includes("--force")
+        ? { ...compiled.project, objects: compiled.project.objects.filter((object) => object !== existingAtOutput) }
+        : compiled.project;
+      const draft = createTranslationDraft(project, {
+        id,
+        sourceId,
+        language,
+        title: optionValue(args, "--title"),
+        translationMode: optionValue(args, "--translation-mode")
+      }, context.registry);
+      await mkdir(dirname(outputPath), { recursive: true });
+      await writeFile(outputPath, draft.markdown, "utf8");
+      const result = { outputPath, root, sourceId, translation: draft.object };
+      if (json) writeJson(success(command, result));
+      else console.log(`CREATED: ${id} (${language}) from ${sourceId} -> ${outputPath}`);
+      return;
+    }
+    if (action === "status") {
+      const rootArg = args[0] && !args[0].startsWith("--") ? args[0] : ".";
+      const root = resolve(optionValue(args, "--root") ?? rootArg);
+      const compiled = await compileProject(root);
+      const context = resolveValidationContext(compiled.project.profile ?? "core");
+      const result = analyzeTranslationStatus(compiled.project, context.registry);
+      if (json) writeJson(success(command, result));
+      else {
+        console.log(`PROJECT: ${result.projectId}`);
+        console.log(`SOURCE OBJECTS: ${result.sources.length}`);
+        for (const source of result.sources) console.log(`${source.id}\t${source.language ?? "und"}\t${source.translations.map((item) => `${item.language ?? "und"}:${item.status}`).join(",") || "none"}`);
+        console.log(`EXISTING LANGUAGES: ${result.existingLanguages.join(", ") || "none"}`);
+        console.log(`MISSING: ${result.missing.map((item) => `${item.sourceId}:${item.language}`).join(", ") || "none"}`);
+        console.log(`STATUSES: ${JSON.stringify(result.statuses)}`);
+        console.log(`ORPHANS: ${result.orphans.map((item) => item.id).join(", ") || "none"}`);
+        console.log(`INVALID PROVENANCE: ${result.invalidProvenance.map((item) => `${item.translationId} (${item.reason})`).join(", ") || "none"}`);
+      }
+      return;
+    }
+    throw new TranslationError("CLI-1901", "Usage: codex translation create|status ...");
+  } catch (error) {
+    const diagnostic = error instanceof TranslationError
+      ? { code: error.code, message: error.message }
+      : genericDiagnostic("CLI-1904", error);
+    emitFailure(command, diagnostic, json, error instanceof TranslationError && error.code === "CLI-1901" ? 2 : 1);
+  }
 }
 
 async function inspectCommand(filePath: string, json: boolean): Promise<void> {
@@ -409,7 +501,9 @@ async function doctorCommand(args: string[]): Promise<void> {
     "specs/core/README.md", "specs/core/rules.json", "profiles/core/profile.json",
     "profiles/scholarly-edition/profile.json", "profiles/hermetica/profile.json",
     "registry/object-types.json", "registry/relation-types.json", "registry/diagnostic-codes.json",
-    "packages/authoring/package.json", "examples/authoring/project.md", "releases/0.2.0/manifest.json"
+    "registry/translation-rules.json", "schemas/translation-rules.schema.json",
+    "packages/authoring/package.json", "packages/translation/package.json",
+    "examples/authoring/project.md", "releases/0.2.0/manifest.json"
   ];
   for (const file of requiredFiles) {
     try {
@@ -444,9 +538,10 @@ async function main(): Promise<void> {
   if (command === "diagnostics") return diagnosticsCommand([argument, ...args].filter((value): value is string => Boolean(value)));
   if (command === "release") return releaseCommand(argument, args);
   if (command === "package") return packageCommand(argument, args);
+  if (command === "translation") return translationCommand(argument, args);
   if (command === "doctor") return doctorCommand([argument, ...args].filter((value): value is string => Boolean(value)));
   const json = [argument, ...args].includes("--json");
-  emitFailure(command ?? "unknown", { code: "CLI-1000", message: "Usage: codex validate|authoring|profiles|inspect|graph|diagnostics|release|package|doctor ..." }, json, 2);
+  emitFailure(command ?? "unknown", { code: "CLI-1000", message: "Usage: codex validate|authoring|profiles|inspect|graph|diagnostics|release|package|translation|doctor ..." }, json, 2);
 }
 
 void main();

@@ -5,7 +5,7 @@
 CODEX is a reproducible framework for preparing, validating, querying, packaging, publishing, and preserving digital scholarly editions.
 
 **Current implementation:** `0.2.0`  
-**Status:** implementation complete; release publication pending the final green CI and signed artifact gate.
+**Status:** CODEX 0.2 published; translation-model development is underway with the 0.2 data shape preserved.
 
 ## CODEX 0.2
 
@@ -20,9 +20,21 @@ The repository contains:
 - `@codex/graph` — canonical runtime graph, indexes, traversal, roots, reachability, and statistics;
 - `@codex/importer` — deterministic Markdown/YAML importer and `codex-import` CLI;
 - `@codex/query` — query parser/executor and `codex-query` CLI;
+- `@codex/translation` — formal translation scaffolding, provenance, coverage, and status analysis;
 - `@codex/release` — deterministic manifests, SHA-256 verification, safe packaging/unpacking, CycloneDX SBOM, and Ed25519 signatures;
 - `@codex/cli` — integrated validation, inspection, graph, diagnostics, profile, authoring, release, package, and doctor commands;
 - `reference/hermetica` — the multilingual HERMETICA reference corpus.
+
+## Translation workflow
+
+```bash
+node apps/cli/dist/index.js translation create \
+  --source FRAG-0001 --language ru --id TRANSLATION-0001 \
+  --output reference/hermetica/translations/ru/ch-01.md
+node apps/cli/dist/index.js translation status reference/hermetica --json
+```
+
+The first stage is model-only: no external AI or machine-translation API is used. See `guides/translations.md` for the object model, provenance rules, validation, CLI behavior, and current limitations.
 
 ## Requirements
 
@@ -133,7 +145,7 @@ The package contains the sealed manifest, `CHECKSUMS.sha256`, a package descript
 - final publication checklist: `releases/0.2.0/RELEASE-CHECKLIST.md`;
 - changes: `CHANGELOG.md`.
 
-The codebase and conformance assets are complete. The manifest intentionally remains `draft` until a green workflow run produces prepared checksums, a detached signature, a public key, and the portable release archive.
+CODEX 0.2 release metadata and publication gates are finalized. Translation work targets the next version while retaining the CODEX 0.2 object shape and CLI envelope.
 
 ## Repository structure
 

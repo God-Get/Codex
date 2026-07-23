@@ -19,9 +19,11 @@
       "version": "0.1.0",
       "status": "draft",
       "language": "ru",
+      "derivedFrom": ["WORK-0001"],
       "relations": [
-        {"type": "translates", "target": "WORK-0001"}
-      ]
+        {"type": "translation-of", "target": "WORK-0001"}
+      ],
+      "metadata": {"content": "Example translation."}
     }
   ]
 }

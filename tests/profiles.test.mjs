@@ -16,6 +16,9 @@ test("HERMETICA resolves deterministic inheritance", () => {
   assert.equal(profile.registry.relationTypes.includes("attests"), true);
   assert.equal(profile.registry.relationTypes.includes("parallels"), true);
   assert.equal(profile.registry.languages.includes("cop"), true);
+  assert.deepEqual(profile.registry.translationRules.targetLanguages, ["ru", "en"]);
+  assert.deepEqual(profile.registry.translationRules.requiredMetadata, ["translationMode"]);
+  assert.equal(profile.registry.translationRules.sourceTypes.includes("hermeticFragment"), true);
   assert.equal(profile.registry.diagnostics.some((item) => item.code === "HERM-1001"), true);
 });
 

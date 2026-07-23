@@ -27,6 +27,10 @@
       "disallowSelfReference": true
     },
     "derivedFrom": { "disallowSelfReference": true },
+    "translation-of": {
+      "sourceTypes": ["translation"],
+      "disallowSelfReference": true
+    },
     "dependsOn": { "disallowSelfReference": true },
     "supersedes": { "disallowSelfReference": true }
   }

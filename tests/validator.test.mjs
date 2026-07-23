@@ -79,9 +79,8 @@ test("provenance references and strict reachability are validated", async () => 
   const strictReport = validateProject(project, { registry: loadRegistry(), profile: "strict" });
   const coreCodes = new Set(coreReport.diagnostics.map((diagnostic) => diagnostic.code));
   const strictCodes = new Set(strictReport.diagnostics.map((diagnostic) => diagnostic.code));
-  assert.equal(coreCodes.has("ERR-1301"), true);
-  assert.equal(coreCodes.has("ERR-1302"), true);
-  assert.equal(coreCodes.has("ERR-1303"), true);
+  assert.equal(coreCodes.has("CODEX_TRANSLATION_SOURCE_COUNT"), true);
+  assert.equal(coreCodes.has("CODEX_TRANSLATION_LANGUAGE_REQUIRED"), true);
   assert.equal(coreCodes.has("WARN-1401"), false);
   assert.equal(strictCodes.has("WARN-1401"), true);
   assert.equal(strictReport.summary.warnings, 1);
@@ -92,7 +91,7 @@ test("languages and required scholarly provenance are validated", async () => {
   const report = validateProject(project, { registry: loadRegistry() });
   const codes = new Set(report.diagnostics.map((diagnostic) => diagnostic.code));
   assert.equal(codes.has("ERR-1107"), true);
-  assert.equal(codes.has("ERR-1304"), true);
+  assert.equal(codes.has("CODEX_TRANSLATION_SOURCE_COUNT"), true);
   assert.equal(codes.has("ERR-1305"), true);
 });
 
@@ -111,12 +110,13 @@ test("graph export includes relation and provenance edges", async () => {
   const project = await loadFixture("examples/minimal-project.json");
   const graph = buildProjectGraph(project);
   assert.equal(graph.nodes.length, 2);
-  assert.equal(graph.edges.length, 1);
-  assert.deepEqual(graph.edges[0], { source: "TR-0001", target: "WORK-0001", type: "translates" });
+  assert.equal(graph.edges.length, 2);
+  assert.deepEqual(graph.edges[0], { source: "TR-0001", target: "WORK-0001", type: "translation-of" });
+  assert.deepEqual(graph.edges[1], { source: "TR-0001", target: "WORK-0001", type: "derivedFrom" });
   const dot = graphToDot(graph);
   assert.match(dot, /^digraph CODEX/);
   assert.match(dot, /TR-0001/);
-  assert.match(dot, /translates/);
+  assert.match(dot, /translation-of/);
 });
 
 test("runtime registry matches machine-readable registry files", async () => {
@@ -125,6 +125,7 @@ test("runtime registry matches machine-readable registry files", async () => {
   const statusRegistry = await loadFixture("registry/lifecycle-statuses.json");
   const profileRegistry = await loadFixture("registry/validation-profiles.json");
   const languageRegistry = await loadFixture("registry/languages.json");
+  const translationRuleRegistry = await loadFixture("registry/translation-rules.json");
   const diagnosticRegistry = await loadFixture("registry/diagnostic-codes.json");
   const loaded = loadRegistry();
   assert.deepEqual(objectRegistry.values, [...objectTypes]);
@@ -137,6 +138,9 @@ test("runtime registry matches machine-readable registry files", async () => {
   assert.deepEqual(loaded.lifecycleStatuses, statusRegistry.values);
   assert.deepEqual(loaded.validationProfiles, profileRegistry.values);
   assert.deepEqual(loaded.languages, languageRegistry.values);
+  assert.deepEqual(loaded.translationRules.sourceTypes, translationRuleRegistry.sourceTypes);
+  assert.deepEqual(loaded.translationRules.targetLanguages, translationRuleRegistry.targetLanguages);
+  assert.deepEqual(loaded.translationRules.requiredMetadata, translationRuleRegistry.requiredMetadata);
   assert.deepEqual(loaded.diagnostics, diagnosticRegistry.diagnostics);
 });
 
@@ -144,7 +148,7 @@ test("diagnostic registry contains unique stable codes", () => {
   const diagnostics = loadRegistry().diagnostics;
   const codes = diagnostics.map((item) => item.code);
   assert.equal(new Set(codes).size, codes.length);
-  for (const item of diagnostics) assert.match(item.code, /^(ERR|WARN|INFO)-[0-9]{4}$/);
+  for (const item of diagnostics) assert.match(item.code, /^(?:(ERR|WARN|INFO)-[0-9]{4}|CODEX_TRANSLATION_[A-Z0-9_]+)$/);
 });
 
 test("every emitted diagnostic is registered", async () => {

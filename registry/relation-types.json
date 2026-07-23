@@ -12,6 +12,7 @@
     "explains",
     "extends",
     "derivedFrom",
+    "translation-of",
     "dependsOn",
     "supersedes",
     "relatedTo"

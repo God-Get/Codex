@@ -14,7 +14,7 @@
         "type": "object",
         "required": ["code", "severity", "title"],
         "properties": {
-          "code": {"type": "string", "pattern": "^(ERR|WARN|INFO)-[0-9]{4}$"},
+          "code": {"type": "string", "pattern": "^(?:(?:ERR|WARN|INFO)-[0-9]{4}|CODEX_TRANSLATION_[A-Z0-9_]+)$"},
           "severity": {"enum": ["error", "warning", "info"]},
           "title": {"type": "string", "minLength": 1}
         },

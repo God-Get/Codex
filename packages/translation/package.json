@@ -1,0 +1,11 @@
+{
+  "name": "@codex/translation",
+  "version": "0.1.0",
+  "type": "module",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "dependencies": {
+    "@codex/core": "0.1.0",
+    "@codex/registry": "0.1.0"
+  }
+}

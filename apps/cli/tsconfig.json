@@ -20,6 +20,7 @@
     {"path": "../../packages/registry"},
     {"path": "../../packages/release"},
     {"path": "../../packages/schema"},
+    {"path": "../../packages/translation"},
     {"path": "../../packages/validator"}
   ],
   "include": ["src/**/*.ts"]

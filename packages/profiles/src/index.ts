@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import type { DiagnosticDefinition, RegistryData } from "@codex/registry";
+import type { DiagnosticDefinition, RegistryData, TranslationRules } from "@codex/registry";
 import { loadRegistry } from "@codex/registry";
 
 export interface ProfileExtensions {
@@ -9,6 +9,7 @@ export interface ProfileExtensions {
   languages?: string[];
   diagnostics?: DiagnosticDefinition[];
   relationConstraints?: Record<string, { sources: string[]; targets: string[] }>;
+  translationRules?: TranslationRules;
 }
 
 export interface ProfileDescriptor {
@@ -74,11 +75,13 @@ export function resolveProfile(id: string, rootDirectory = process.cwd()): Resol
   const objectTypes = [...base.objectTypes];
   const relationTypes = [...base.relationTypes];
   const languages = [...base.languages];
+  let translationRules: TranslationRules = base.translationRules;
 
   for (const descriptor of ordered) {
     objectTypes.push(...(descriptor.extensions.objectTypes ?? []));
     relationTypes.push(...(descriptor.extensions.relationTypes ?? []));
     languages.push(...(descriptor.extensions.languages ?? []));
+    if (descriptor.extensions.translationRules) translationRules = descriptor.extensions.translationRules;
     for (const diagnostic of descriptor.extensions.diagnostics ?? []) {
       const existing = diagnosticByCode.get(diagnostic.code);
       if (existing && (existing.severity !== diagnostic.severity || existing.title !== diagnostic.title)) {
@@ -106,6 +109,7 @@ export function resolveProfile(id: string, rootDirectory = process.cwd()): Resol
       languages: unique(languages),
       validationProfiles: unique([...base.validationProfiles, ...ordered.map((item) => item.id)]),
       relationConstraints: constraints,
+      translationRules,
       diagnostics: [...diagnosticByCode.values()].sort((a, b) => a.code.localeCompare(b.code))
     }
   };

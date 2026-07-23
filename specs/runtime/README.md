@@ -1,10 +1,11 @@
 # CODEX Runtime 0.2
 
-The CODEX runtime layer consists of three packages:
+The CODEX runtime layer consists of four packages:
 
 - `@codex/importer` compiles deterministic Markdown/YAML source trees into `CodexProject` values.
 - `@codex/graph` builds indexed, traversable project graphs.
 - `@codex/query` evaluates deterministic object predicates over a project graph.
+- `@codex/translation` creates translation scaffolds and computes translation coverage and provenance status.
 
 ## Importer
 
@@ -26,6 +27,17 @@ const statistics = graph.statistics();
 ```
 
 Edges preserve their declared direction. `derivedFrom` is represented as an edge from the derived object to its source object.
+`translation-of` uses the same translation-to-source direction and must agree with the canonical `derivedFrom` source when present.
+
+## Translation workflow
+
+```sh
+codex translation create --source FRAGMENT-0001 --language ru \
+  --id TRANSLATION-0001 --output translations/ru/fragment-0001.md
+codex translation status . --json
+```
+
+The workflow is local and deterministic. It does not invoke external translation services.
 
 ## Query
 

@@ -10,6 +10,11 @@
     "objectTypes": ["hermeticWork", "hermeticFragment", "parallelPassage", "doctrine", "receptionWitness"],
     "relationTypes": ["parallels", "receives", "attributesTo", "interpretsAs"],
     "languages": ["cop", "syr"],
+    "translationRules": {
+      "sourceTypes": ["fragment", "hermeticFragment", "translation"],
+      "targetLanguages": ["ru", "en"],
+      "requiredMetadata": ["translationMode"]
+    },
     "diagnostics": [
       {"code":"HERM-1001","severity":"error","title":"Hermetic translation without source fragment"},
       {"code":"HERM-1002","severity":"warning","title":"Hermetic doctrine without textual evidence"}

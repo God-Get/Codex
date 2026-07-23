@@ -1,0 +1,8 @@
+{
+  "$schema": "../schemas/translation-rules.schema.json",
+  "registry": "codex.translation-rules",
+  "version": "0.1.0",
+  "sourceTypes": ["work", "edition", "volume", "chapter", "section", "fragment", "source", "translation"],
+  "targetLanguages": [],
+  "requiredMetadata": []
+}

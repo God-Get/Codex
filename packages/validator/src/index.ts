@@ -161,6 +161,52 @@ function detectCycles(project: CodexProject, relationType: "contains" | "depends
   for (const id of graph.keys()) visit(id);
 }
 
+function translationText(object: CodexProject["objects"][number]): string {
+  const value = object.metadata?.content ?? object.metadata?.body ?? object.metadata?.text;
+  if (typeof value !== "string") return "";
+  return value
+    .replace(/<!--[\s\S]*?-->/g, "")
+    .replace(/^#{1,6}\s+.*$/gm, "")
+    .trim();
+}
+
+function detectTranslationProvenanceCycles(project: CodexProject, diagnostics: Diagnostic[]): void {
+  const translations = new Map(project.objects.filter((object) => object.type === "translation").map((object) => [object.id, object]));
+  const visiting = new Set<string>();
+  const visited = new Set<string>();
+  const stack: string[] = [];
+  const reported = new Set<string>();
+
+  function visit(id: string): void {
+    if (visited.has(id)) return;
+    if (visiting.has(id)) {
+      const start = stack.indexOf(id);
+      const cycle = [...stack.slice(start), id];
+      const key = [...new Set(cycle)].sort().join("|");
+      if (!reported.has(key)) {
+        reported.add(key);
+        push(diagnostics, {
+          code: "CODEX_TRANSLATION_PROVENANCE_CYCLE",
+          severity: "error",
+          message: `Translation provenance cycle: ${cycle.join(" -> ")}`,
+          objectId: id,
+          path: "objects[].derivedFrom"
+        });
+      }
+      return;
+    }
+    visiting.add(id);
+    stack.push(id);
+    const sourceId = translations.get(id)?.derivedFrom?.length === 1 ? translations.get(id)?.derivedFrom?.[0] : undefined;
+    if (sourceId && translations.has(sourceId)) visit(sourceId);
+    stack.pop();
+    visiting.delete(id);
+    visited.add(id);
+  }
+
+  for (const id of translations.keys()) visit(id);
+}
+
 export function validateProject(project: CodexProject, options: ValidationOptions = {}): ValidationReport {
   const diagnostics: Diagnostic[] = [];
   const ids = new Set<string>();
@@ -185,9 +231,15 @@ export function validateProject(project: CodexProject, options: ValidationOption
     if (!isRegisteredLifecycleStatus(object.status, registry)) push(diagnostics, { code: "ERR-1104", severity: "error", message: `Invalid lifecycle status: ${object.status}`, objectId: object.id, path: `${basePath}.status` });
     if (!object.title?.trim()) push(diagnostics, { code: "ERR-1105", severity: "error", message: "Object title must not be empty.", objectId: object.id, path: `${basePath}.title` });
     if (!semanticVersionPattern.test(object.version)) push(diagnostics, { code: "ERR-1106", severity: "error", message: `Object version is not valid semantic versioning: ${object.version}`, objectId: object.id, path: `${basePath}.version` });
-    if (object.language && !isRegisteredLanguage(object.language, registry)) push(diagnostics, { code: "ERR-1107", severity: "error", message: `Unregistered language code: ${object.language}`, objectId: object.id, path: `${basePath}.language` });
+    if (object.language && !isRegisteredLanguage(object.language, registry)) push(diagnostics, {
+      code: object.type === "translation" ? "CODEX_TRANSLATION_LANGUAGE_UNKNOWN" : "ERR-1107",
+      severity: "error",
+      message: `Unregistered language code: ${object.language}`,
+      objectId: object.id,
+      path: `${basePath}.language`
+    });
 
-    for (const [sourceIndex, sourceId] of (object.derivedFrom ?? []).entries()) {
+    for (const [sourceIndex, sourceId] of (object.type === "translation" ? [] : (object.derivedFrom ?? [])).entries()) {
       const path = `${basePath}.derivedFrom[${sourceIndex}]`;
       if (!identifierPattern.test(sourceId)) push(diagnostics, { code: "ERR-1301", severity: "error", message: `Invalid derivedFrom identifier: ${sourceId}`, objectId: object.id, path });
       else if (!objectsById.has(sourceId)) push(diagnostics, { code: "ERR-1302", severity: "error", message: `derivedFrom source does not exist: ${sourceId}`, objectId: object.id, path });
@@ -196,7 +248,51 @@ export function validateProject(project: CodexProject, options: ValidationOption
 
     const relationKinds = new Set((object.relations ?? []).map((relation) => relation.type));
     const hasProvenance = (object.derivedFrom?.length ?? 0) > 0 || relationKinds.has("derivedFrom");
-    if (object.type === "translation" && !hasProvenance && !relationKinds.has("translates")) push(diagnostics, { code: "ERR-1304", severity: "error", message: "Translation must identify its source through derivedFrom or translates.", objectId: object.id, path: basePath });
+    if (object.type === "translation") {
+      const sourceIds = object.derivedFrom ?? [];
+      if (!object.language?.trim()) push(diagnostics, {
+        code: "CODEX_TRANSLATION_LANGUAGE_REQUIRED", severity: "error", message: "Translation language is required.", objectId: object.id, path: `${basePath}.language`
+      });
+      if (sourceIds.length !== 1) push(diagnostics, {
+        code: "CODEX_TRANSLATION_SOURCE_COUNT", severity: "error", message: `Translation must have exactly one derivedFrom source; found ${sourceIds.length}.`, objectId: object.id, path: `${basePath}.derivedFrom`
+      });
+      const sourceId = sourceIds.length === 1 ? sourceIds[0] : undefined;
+      const source = sourceId ? objectsById.get(sourceId) : undefined;
+      if (sourceId === object.id) push(diagnostics, {
+        code: "CODEX_TRANSLATION_SELF_REFERENCE", severity: "error", message: "Translation cannot derive from itself.", objectId: object.id, path: `${basePath}.derivedFrom[0]`
+      });
+      else if (sourceId && !source) push(diagnostics, {
+        code: "CODEX_TRANSLATION_SOURCE_MISSING", severity: "error", message: `Translation source does not exist: ${sourceId}`, objectId: object.id, path: `${basePath}.derivedFrom[0]`
+      });
+      if (source && !registry.translationRules.sourceTypes.includes(source.type)) push(diagnostics, {
+        code: "CODEX_TRANSLATION_SOURCE_TYPE", severity: "error", message: `Object type ${source.type} cannot be a translation source.`, objectId: object.id, path: `${basePath}.derivedFrom[0]`
+      });
+      if (source && object.language && source.language && object.language === source.language) push(diagnostics, {
+        code: "CODEX_TRANSLATION_SAME_LANGUAGE", severity: "error", message: `Translation language ${object.language} matches source language.`, objectId: object.id, path: `${basePath}.language`
+      });
+      if (source && object.status === "published" && source.status === "draft") push(diagnostics, {
+        code: "CODEX_TRANSLATION_PUBLISHED_FROM_DRAFT", severity: "error", message: `Published translation cannot derive from draft source ${source.id}.`, objectId: object.id, path: `${basePath}.status`
+      });
+      if (source?.type === "translation") {
+        const upstreamIds = source.derivedFrom ?? [];
+        if (upstreamIds.length !== 1 || upstreamIds[0] === source.id || !objectsById.has(upstreamIds[0]!)) push(diagnostics, {
+          code: "CODEX_TRANSLATION_PROVENANCE_INVALID", severity: "error", message: `Translation source ${source.id} does not preserve valid provenance.`, objectId: object.id, path: `${basePath}.derivedFrom[0]`
+        });
+      }
+      if (!translationText(object)) push(diagnostics, {
+        code: "CODEX_TRANSLATION_EMPTY_CONTENT", severity: "error", message: "Translation content must not be empty.", objectId: object.id, path: `${basePath}.metadata`
+      });
+      for (const key of registry.translationRules.requiredMetadata) {
+        const value = object.metadata?.[key];
+        if (value === undefined || value === null || (typeof value === "string" && !value.trim())) push(diagnostics, {
+          code: "CODEX_TRANSLATION_METADATA_REQUIRED", severity: "error", message: `Translation metadata.${key} is required by the active profile.`, objectId: object.id, path: `${basePath}.metadata.${key}`
+        });
+      }
+      const explicitRelations = (object.relations ?? []).filter((relation) => relation.type === "translation-of");
+      if (explicitRelations.length > 0 && (explicitRelations.length !== 1 || explicitRelations[0]?.target !== sourceId)) push(diagnostics, {
+        code: "CODEX_TRANSLATION_RELATION_MISMATCH", severity: "error", message: "translation-of must point to the single derivedFrom source.", objectId: object.id, path: `${basePath}.relations`
+      });
+    }
     if (object.type === "commentary" && !hasProvenance && !relationKinds.has("references") && !relationKinds.has("explains")) push(diagnostics, { code: "ERR-1305", severity: "error", message: "Commentary must identify the material it comments on.", objectId: object.id, path: basePath });
 
     for (const [relationIndex, relation] of (object.relations ?? []).entries()) {
@@ -221,6 +317,7 @@ export function validateProject(project: CodexProject, options: ValidationOption
 
   detectCycles(project, "contains", diagnostics);
   detectCycles(project, "dependsOn", diagnostics);
+  detectTranslationProvenanceCycles(project, diagnostics);
   if (profile === "strict") {
     for (const objectId of findUnreachable(project)) push(diagnostics, { code: "WARN-1401", severity: "warning", message: "Object is unreachable from every containment root.", objectId, path: "objects[].relations" });
   }

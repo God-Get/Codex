@@ -21,7 +21,17 @@
         "relationTypes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
         "languages": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
         "diagnostics": {"type": "array", "items": {"type": "object", "required": ["code", "severity", "title"], "properties": {"code": {"type": "string"}, "severity": {"enum": ["error", "warning", "info"]}, "title": {"type": "string"}}}},
-        "relationConstraints": {"type": "object", "additionalProperties": {"type": "object", "required": ["sources", "targets"], "properties": {"sources": {"type": "array", "items": {"type": "string"}}, "targets": {"type": "array", "items": {"type": "string"}}}}}
+        "relationConstraints": {"type": "object", "additionalProperties": {"type": "object", "required": ["sources", "targets"], "properties": {"sources": {"type": "array", "items": {"type": "string"}}, "targets": {"type": "array", "items": {"type": "string"}}}}},
+        "translationRules": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["sourceTypes", "targetLanguages", "requiredMetadata"],
+          "properties": {
+            "sourceTypes": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "targetLanguages": {"type": "array", "uniqueItems": true, "items": {"type": "string"}},
+            "requiredMetadata": {"type": "array", "uniqueItems": true, "items": {"type": "string"}}
+          }
+        }
       }
     }
   }

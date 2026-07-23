@@ -1,0 +1,41 @@
+{
+  "missingLanguage": {
+    "id": "TRANS-1001",
+    "type": "translation",
+    "title": "Missing language",
+    "version": "0.1.0",
+    "status": "draft",
+    "derivedFrom": ["FRAG-0001"],
+    "metadata": {"content": "Text", "translationMode": "fixture"}
+  },
+  "unknownLanguage": {
+    "id": "TRANS-1002",
+    "type": "translation",
+    "title": "Unknown language",
+    "version": "0.1.0",
+    "status": "draft",
+    "language": "xx",
+    "derivedFrom": ["FRAG-0001"],
+    "metadata": {"content": "Text", "translationMode": "fixture"}
+  },
+  "missingSource": {
+    "id": "TRANS-1003",
+    "type": "translation",
+    "title": "Missing source",
+    "version": "0.1.0",
+    "status": "draft",
+    "language": "ru",
+    "derivedFrom": ["FRAG-9999"],
+    "metadata": {"content": "Text", "translationMode": "fixture"}
+  },
+  "empty": {
+    "id": "TRANS-1004",
+    "type": "translation",
+    "title": "Empty translation",
+    "version": "0.1.0",
+    "status": "draft",
+    "language": "ru",
+    "derivedFrom": ["FRAG-0001"],
+    "metadata": {"content": "", "translationMode": "fixture"}
+  }
+}

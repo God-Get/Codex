@@ -72,6 +72,8 @@ function toObject(document: ParsedDocument): CodexObject {
   const id = requiredString(document, "id");
   const type = requiredString(document, "type");
   const relationValues = stringArray(document.metadata.relations);
+  const known = new Set(["id", "type", "title", "version", "status", "language", "derivedFrom", "relations"]);
+  const authoredMetadata = Object.fromEntries(Object.entries(document.metadata).filter(([key]) => !known.has(key)));
   return {
     id,
     type,
@@ -85,7 +87,7 @@ function toObject(document: ParsedDocument): CodexObject {
       if (separator < 1) throw new Error(`${document.source.file}: invalid relation '${value}'`);
       return { type: value.slice(0, separator).trim(), target: value.slice(separator + 2).trim() };
     }),
-    metadata: { body: document.body, source: document.source }
+    metadata: { ...authoredMetadata, body: document.body, source: document.source }
   };
 }
 
