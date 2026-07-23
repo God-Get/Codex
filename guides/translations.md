@@ -1,65 +1,25 @@
-# Translation model and workflow
+# Production translation workflow
 
-CODEX combines a stable translation object model with an opt-in automated workflow. Storage, validation, provenance, status, QA, and offline fixtures remain deterministic. External providers are contacted only by `translation run` with a non-static provider configuration.
+CODEX translations remain ordinary CODEX 0.2 objects. Automation adds providers, durable checkpoints, translation memory, terminology policy, structural QA, audit records, and human review without changing the canonical object shape or the `apiVersion: "0.2"` CLI envelope.
 
-## Translation object
+## Object model and provenance
 
-A translation remains a normal CODEX object and therefore preserves CODEX 0.2 compatibility:
-
-```json
-{
-  "id": "TRANSLATION-0001",
-  "type": "translation",
-  "title": "Corpus Hermeticum I.1 — Russian translation",
-  "version": "0.1.0",
-  "status": "draft",
-  "language": "ru",
-  "derivedFrom": ["FRAGMENT-0001"],
-  "relations": [
-    {"type": "translation-of", "target": "FRAGMENT-0001"}
-  ],
-  "metadata": {
-    "translationMode": "human",
-    "sourceLanguage": "el",
-    "content": "..."
-  }
-}
+```yaml
+id: TRANSLATION-0001
+type: translation
+title: Corpus Hermeticum I.1 — Russian translation
+version: 0.1.0
+status: draft
+language: ru
+derivedFrom: [FRAGMENT-0001]
+relations: [translation-of->FRAGMENT-0001]
+translationMode: machine
+sourceLanguage: el
 ```
 
-`derivedFrom[0]` is the canonical provenance source. `translation-of` makes the same direction explicit in the relation graph: translation → source. The relation is optional for legacy CODEX 0.2 objects, but when present it must match `derivedFrom`.
+`derivedFrom` contains exactly one source. `translation-of` points from the translation to that same source. Sources must exist, languages must differ, and provenance cannot self-reference or cycle. Translation chains are valid when every link preserves this provenance. Published translations cannot derive from draft sources.
 
-## Validation
-
-A translation requires a registered language, exactly one existing source, non-empty text, and a language different from its source. Self-reference and provenance cycles are forbidden. Translation chains are allowed when every translation in the chain retains one valid source. A published translation cannot derive from a draft source.
-
-Profiles can constrain source object types, expected target languages, and required metadata. HERMETICA accepts fragments, Hermetic fragments, and translations as sources; expects Russian and English coverage; and requires `metadata.translationMode`.
-
-## Create a Markdown scaffold
-
-```bash
-node apps/cli/dist/index.js translation create \
-  --source FRAG-0001 \
-  --language ru \
-  --id TRANSLATION-0001 \
-  --output reference/hermetica/translations/ru/ch-01.md
-```
-
-The command discovers the nearest `project.yml`/`project.yaml`, verifies the source, ID, language, and profile source rules, and writes deterministic front matter. Existing files are protected unless `--force` is supplied. Use `--root DIR` when the output is outside the project tree and `--json` for the CODEX 0.2 envelope.
-
-The generated body contains a comment placeholder. It must be replaced with actual translation text before semantic validation can pass.
-
-## Translation status
-
-```bash
-node apps/cli/dist/index.js translation status reference/hermetica
-node apps/cli/dist/index.js translation status reference/hermetica --json
-```
-
-Status reports source objects, existing languages, missing profile languages, lifecycle counts, orphan translations, and invalid provenance. Missing coverage is computed from the active profile; it does not create files.
-
-## Automated translation
-
-Create a configuration:
+## Provider configuration
 
 ```json
 {
@@ -68,83 +28,119 @@ Create a configuration:
     "kind": "openai-compatible",
     "endpoint": "https://provider.example/v1/chat/completions",
     "model": "translation-model",
-    "apiKeyEnv": "CODEX_TRANSLATION_API_KEY"
+    "apiKeyEnv": "CODEX_TRANSLATION_API_KEY",
+    "timeoutMs": 60000,
+    "maxResponseBytes": 8388608,
+    "inputCostPerMillion": 1.5,
+    "outputCostPerMillion": 6
   },
-  "glossaryFile": "glossary.json",
-  "memoryFile": ".codex-ci/translation-memory.json",
+  "glossaryFile": "fixtures/glossary.json",
+  "memoryFile": ".codex/translation-memory.json",
+  "stateFile": ".codex/translation-state.json",
+  "auditFile": ".codex/translation-audit.jsonl",
   "outputDirectory": "translations",
-  "concurrency": 2,
+  "concurrency": 4,
   "requestsPerMinute": 60,
-  "maxRetries": 2
+  "maxRetries": 4,
+  "fuzzyThreshold": 0.92,
+  "itemTimeoutMs": 300000,
+  "maxSourceBytes": 8388608,
+  "allowSensitiveContent": false
 }
 ```
 
-Preview without credentials or network access:
+`static` reads a deterministic `{ "translations": { "SOURCE:language": "text" } }` map and is intended for CI and air-gapped use. `openai-compatible` implements the chat-completions wire format over HTTPS. It treats 429, 408, 409, 5xx, timeouts, and network failures as transient; permanent 4xx and malformed or empty responses are not retried. Retry uses exponential backoff with jitter and honors `Retry-After`.
+
+The public `TranslationProvider`, `TranslationProviderFactory`, and `TranslationProviderRegistry` contracts allow a package to register another provider kind without changing the CLI or batch runner. Provider implementations must observe the supplied `AbortSignal`.
+
+API keys are read only from `apiKeyEnv`. They are never written to generated objects, checkpoints, memory, audit logs, or error messages.
+
+## Running and resuming
 
 ```bash
 codex translation run reference/hermetica \
   --config reference/hermetica/translation.config.json \
   --dry-run --json
-```
 
-Translate one object or every missing profile target:
-
-```bash
 codex translation run reference/hermetica \
   --config reference/hermetica/translation.config.json \
   --source FRAG-0001 --language en --json
-
-codex translation run reference/hermetica \
-  --config reference/hermetica/translation.config.json --json
 ```
 
-Existing files are never replaced without `--force`. Batch output is all-or-nothing unless `--allow-partial` is explicit. Successful provider results are written to translation memory even when another batch item fails, preventing duplicate billable requests on retry.
+Each successful item is validated and atomically written before the next checkpoint. The state file records completion and the SHA-256 of the output. A repeated command verifies that checksum and skips completed work. Interrupted `running` or `failed` items are eligible for retry; a completed checkpoint whose output was modified is rejected instead of silently overwriting data. `--force` explicitly replaces a managed translation. `--allow-partial` returns completed outputs even when another item fails.
 
-The built-in `static` provider reads translations from a JSON map and is intended for fixtures, air-gapped workflows, and CI. The `openai-compatible` provider uses HTTPS, a deterministic temperature of zero, bounded timeout/retries, concurrency control, and requests-per-minute throttling. The API key is read from `apiKeyEnv`; its value is not persisted or included in output.
+The runner accepts an `AsyncIterable`, keeps only the configured number of requests active, and supports `collectResults: false`. This permits queues larger than 10,000 objects without retaining the corpus of results in memory. Rate limiting is shared across workers.
 
-## Glossary, memory, and QA
+## Translation memory
 
-Glossaries are arrays of `{source,target,sourceLanguage?,targetLanguage?}`. Applicable terms are sent to the provider and enforced after generation.
-
-Translation-memory keys include normalized source text, source and target language, and applicable glossary constraints. A source or glossary change therefore invalidates the cached entry.
-
-QA rejects:
-
-- empty or unchanged output;
-- lost `{{placeholder}}`, `${placeholder}`, or printf placeholders;
-- required glossary targets that are absent.
-
-An anomalous length ratio produces a warning and lowers the score without blocking the draft. Generated Markdown records provider/model provenance, timestamp, QA score, and `qaPassed`.
+Memory version 1 remains backward compatible. New entries include normalized source text so CODEX can perform exact lookup first and a configurable fuzzy lookup second. Entries are keyed by source/target language, source content, and applicable glossary. Updating the source or glossary produces a new key. Import merges by key and reports duplicates.
 
 ```bash
-codex translation qa reference/hermetica \
-  --config reference/hermetica/translation.config.json --json
-codex translation memory \
-  --file reference/hermetica/.codex-ci/translation-memory.json --json
+codex translation memory --file .codex/translation-memory.json --json
+codex translation memory export --file .codex/translation-memory.json \
+  --output translation-memory.backup.json --json
+codex translation memory import --file .codex/translation-memory.json \
+  --input team-memory.json --json
 ```
+
+Fuzzy reuse still passes the complete QA gate before output is accepted.
+
+## Glossary
+
+```json
+[
+  {
+    "source": "λόγος",
+    "target": "Логос",
+    "sourceLanguage": "el",
+    "targetLanguage": "ru",
+    "required": true,
+    "caseSensitive": true,
+    "forbidden": ["слово", "логос"]
+  }
+]
+```
+
+`required` defaults to `true`. `caseSensitive` defaults to `false`. Every forbidden variant is checked independently. Conflicting entries are rejected before a provider is called.
+
+## Quality assurance
+
+`translation run`, `translation qa`, and approval verify:
+
+- non-empty and changed natural-language output;
+- Markdown heading levels;
+- link and image destinations;
+- CODEX identifiers;
+- fenced code blocks and inline code;
+- table column structure and list nesting/type;
+- HTML tag structure;
+- well-formed Unicode without replacement/control characters;
+- `{{...}}`, `${...}`, and printf placeholders;
+- required and forbidden glossary terminology.
+
+Generated front matter is produced by CODEX rather than by the provider, parsed by the authoring layer, and validated with the active profile before the output is accepted.
 
 ## Human review
 
-Automated output always starts as `draft`; automation never publishes it. A reviewer can move a file to `review` or `approved`. Approval reruns the local QA gate:
-
 ```bash
-codex translation review \
-  --file reference/hermetica/translations/en/frag-0001.md \
+codex translation review --file translations/ru/source.md \
   --status review --reviewer "A. Reviewer" --json
-codex translation review \
-  --file reference/hermetica/translations/en/frag-0001.md \
-  --status approved --reviewer "A. Reviewer" \
-  --config reference/hermetica/translation.config.json --json
+codex translation review --file translations/ru/source.md \
+  --status approved --reviewer "B. Approver" --config translation.config.json --json
+codex translation review --file translations/ru/source.md \
+  --status published --reviewer "C. Publisher" --config translation.config.json --json
 ```
 
-The command enforces `draft → review → approved`, records `reviewedBy` and `reviewedAt`, and allows an approved translation to return to draft for revision. Publication remains governed by the normal CODEX lifecycle and validator.
+The enforced path is `draft → review → approved → published`. Review records `reviewedBy/reviewedAt`, approval records `approvedBy/approvedAt`, and publication records `publishedBy/publishedAt`. Approval and publication rerun QA. A published item is terminal in this workflow; revision begins as a new draft/version.
 
-## Operational limits
+## Audit and operations
 
-- Provider quality and pricing remain properties of the configured service.
-- The current adapter targets the common chat-completions wire format; provider-specific batch APIs require an additional adapter.
-- QA is structural and terminology-based, not a substitute for expert semantic review.
-- Sentence-level alignment and collaborative reviewer assignment are not included.
-- The CLI is synchronous; durable background queues belong in a hosting integration.
+The JSONL audit contains provider and model identifiers, duration, attempts, retries, memory match type, token counts and configured cost estimates when available, plus sanitized failure information. It never stores source/translated text or credentials.
 
-Generated text must always satisfy the same provenance and validation rules as human-authored translations.
+Before remote transmission CODEX rejects path traversal, oversized inputs, likely private keys/API tokens, and unsafe configuration paths. The provider prompt labels the document as untrusted data and explicitly ignores instructions embedded in it. Set `allowSensitiveContent` only after a project-specific review.
+
+Deployment, threat controls, and incident handling are described in [translation-deployment.md](translation-deployment.md) and [translation-security.md](translation-security.md). Upgrade details are in [translation-migration.md](translation-migration.md).
+
+## Current boundary
+
+Structural and terminology QA cannot establish semantic or scholarly correctness; publication always requires recorded human review. The built-in remote adapter uses chat completions rather than provider-specific batch endpoints. Distributed multi-host coordination requires an external queue/lock service; the included checkpoint is durable for one writer per project.

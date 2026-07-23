@@ -6,3 +6,4 @@ codex-graph.dot
 codex-package-*/
 codex-package-*.tgz
 releases/*/manifest.prepared.json
+reference/hermetica/.codex-ci/

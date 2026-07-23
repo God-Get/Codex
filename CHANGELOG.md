@@ -8,13 +8,17 @@ All notable changes to CODEX are documented here.
 
 - formal CODEX translation objects, provenance validation, `translation-of`, HERMETICA translation rules, fixtures, and stable diagnostics;
 - `translation create`, `status`, `run`, `qa`, `review`, and `memory` CLI workflows using the CODEX 0.2 envelope;
-- provider-neutral automation with offline static fixtures and an opt-in OpenAI-compatible HTTPS adapter;
-- bounded retries, concurrency and rate limits, translation memory, glossary enforcement, structural QA, and human review gates.
+- extensible provider registry with offline static fixtures and an opt-in OpenAI-compatible HTTPS adapter;
+- transient-only exponential retry for 429/5xx/network failures, per-request and per-item cancellation, concurrency and rate limits;
+- durable per-item checkpoints, atomic resume, audit JSONL, exact/fuzzy translation memory with import/export and deduplication;
+- required/forbidden case-aware glossary policy and QA for Markdown, front matter, links, identifiers, code, tables, lists, HTML, Unicode, and placeholders;
+- recorded `draft → review → approved → published` human workflow and 10,000-object streaming conformance coverage.
 
 ### Security
 
-- provider credentials are read from a named environment variable and are never persisted in objects or memory;
-- automated output remains draft until an identified reviewer advances it through review and approval.
+- provider credentials are read from a named environment variable and are never persisted in objects, memory, checkpoints, or audit;
+- project-root path confinement, size limits, secret detection, prompt-injection isolation, and redacted error logging;
+- automated output remains draft until identified reviewers advance it through review, approval, and publication.
 
 ## [0.2.0] — 2026-07-21
 

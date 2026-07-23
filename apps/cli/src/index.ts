@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createHash } from "node:crypto";
-import { access, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
+import { access, appendFile, mkdir, readFile, rename, rm, writeFile } from "node:fs/promises";
 import { dirname, parse, relative, resolve, sep } from "node:path";
 import process from "node:process";
 import { authoringDiagnostic, compileAuthoringProject, parseMarkdownDocument } from "@codex/authoring";
@@ -23,19 +23,27 @@ import { validateProjectSchema } from "@codex/schema";
 import {
   analyzeTranslationStatus,
   assessTranslationQuality,
+  auditForResult,
+  contentHash,
+  createDefaultProviderRegistry,
   createTranslationDraft,
+  emptyTranslationRunState,
   emptyTranslationMemory,
   extractObjectText,
-  OpenAICompatibleTranslationProvider,
+  mergeTranslationMemories,
   runTranslationBatch,
-  StaticTranslationProvider,
+  runItemKey,
+  safeAuditError,
   TranslationError,
+  translationMemoryKey,
   validateGlossary,
   validateTranslationMemory,
+  validateTranslationRunState,
   type AutomationItem,
   type GlossaryEntry,
   type TranslationMemory,
-  type TranslationProvider
+  type TranslationProvider,
+  type TranslationRunState
 } from "@codex/translation";
 import { buildProjectGraph, graphToDot, inspectProject, validateProject } from "@codex/validator";
 
@@ -300,15 +308,19 @@ async function discoverProjectRoot(outputPath: string): Promise<string> {
 }
 
 interface TranslationAutomationConfig {
-  provider:
-    | { kind: "static"; dataFile: string }
-    | { kind: "openai-compatible"; endpoint: string; model: string; apiKeyEnv: string; timeoutMs?: number; organization?: string };
+  provider: Record<string, unknown> & { kind: string };
   glossaryFile?: string;
   memoryFile?: string;
+  stateFile?: string;
+  auditFile?: string;
   outputDirectory?: string;
   concurrency?: number;
   requestsPerMinute?: number;
   maxRetries?: number;
+  fuzzyThreshold?: number;
+  itemTimeoutMs?: number;
+  maxSourceBytes?: number;
+  allowSensitiveContent?: boolean;
 }
 
 async function readJsonFile(path: string): Promise<unknown> {
@@ -322,51 +334,41 @@ async function readJsonFile(path: string): Promise<unknown> {
 function automationConfig(value: unknown): TranslationAutomationConfig {
   if (!value || typeof value !== "object") throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Automation config must be a JSON object.");
   const config = value as Record<string, unknown>;
-  const allowedConfigKeys = new Set(["$schema", "provider", "glossaryFile", "memoryFile", "outputDirectory", "concurrency", "requestsPerMinute", "maxRetries"]);
+  const allowedConfigKeys = new Set([
+    "$schema", "provider", "glossaryFile", "memoryFile", "stateFile", "auditFile", "outputDirectory",
+    "concurrency", "requestsPerMinute", "maxRetries", "fuzzyThreshold", "itemTimeoutMs",
+    "maxSourceBytes", "allowSensitiveContent"
+  ]);
   const unknownConfigKey = Object.keys(config).find((key) => !allowedConfigKeys.has(key));
   if (unknownConfigKey) throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", `Unknown automation config property: ${unknownConfigKey}`);
   if (!config.provider || typeof config.provider !== "object") throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Automation config requires provider.");
   const provider = config.provider as Record<string, unknown>;
-  for (const [key, minimum, maximum] of [["concurrency", 1, 16], ["requestsPerMinute", Number.MIN_VALUE, Number.MAX_VALUE], ["maxRetries", 0, 10]] as const) {
+  for (const [key, minimum, maximum] of [
+    ["concurrency", 1, 16],
+    ["requestsPerMinute", Number.MIN_VALUE, Number.MAX_VALUE],
+    ["maxRetries", 0, 10],
+    ["fuzzyThreshold", 0, 1],
+    ["itemTimeoutMs", 1_000, 3_600_000],
+    ["maxSourceBytes", 1, 100 * 1024 * 1024]
+  ] as const) {
     const field = config[key];
-    if (field !== undefined && (typeof field !== "number" || !Number.isFinite(field) || field < minimum || field > maximum || (key !== "requestsPerMinute" && !Number.isInteger(field)))) {
+    if (field !== undefined && (typeof field !== "number" || !Number.isFinite(field) || field < minimum || field > maximum
+      || (!["requestsPerMinute", "fuzzyThreshold"].includes(key) && !Number.isInteger(field)))) {
       throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", `Automation config ${key} is invalid.`);
     }
   }
-  for (const key of ["glossaryFile", "memoryFile", "outputDirectory"] as const) {
+  for (const key of ["glossaryFile", "memoryFile", "stateFile", "auditFile", "outputDirectory"] as const) {
     if (config[key] !== undefined && (typeof config[key] !== "string" || !config[key].trim())) {
       throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", `Automation config ${key} must be a non-empty string.`);
     }
   }
-  if (provider.kind === "static" && typeof provider.dataFile === "string" && provider.dataFile.length > 0) {
-    const unknownProviderKey = Object.keys(provider).find((key) => !["kind", "dataFile"].includes(key));
-    if (unknownProviderKey) throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", `Unknown static provider property: ${unknownProviderKey}`);
-    return { ...(config as unknown as TranslationAutomationConfig), provider: { kind: "static", dataFile: provider.dataFile } };
+  if (typeof config.allowSensitiveContent !== "undefined" && typeof config.allowSensitiveContent !== "boolean") {
+    throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Automation config allowSensitiveContent must be boolean.");
   }
-  if (provider.kind === "openai-compatible"
-    && typeof provider.endpoint === "string"
-    && /^https:\/\//.test(provider.endpoint)
-    && typeof provider.model === "string"
-    && provider.model.length > 0
-    && typeof provider.apiKeyEnv === "string"
-    && /^[A-Z_][A-Z0-9_]*$/.test(provider.apiKeyEnv)
-    && (provider.timeoutMs === undefined || (typeof provider.timeoutMs === "number" && Number.isInteger(provider.timeoutMs) && provider.timeoutMs >= 1_000 && provider.timeoutMs <= 600_000))
-    && (provider.organization === undefined || (typeof provider.organization === "string" && provider.organization.length > 0))) {
-    const unknownProviderKey = Object.keys(provider).find((key) => !["kind", "endpoint", "model", "apiKeyEnv", "timeoutMs", "organization"].includes(key));
-    if (unknownProviderKey) throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", `Unknown openai-compatible provider property: ${unknownProviderKey}`);
-    return {
-      ...(config as unknown as TranslationAutomationConfig),
-      provider: {
-        kind: "openai-compatible",
-        endpoint: provider.endpoint,
-        model: provider.model,
-        apiKeyEnv: provider.apiKeyEnv,
-        ...(typeof provider.timeoutMs === "number" ? { timeoutMs: provider.timeoutMs } : {}),
-        ...(typeof provider.organization === "string" ? { organization: provider.organization } : {})
-      }
-    };
+  if (typeof provider.kind !== "string" || !provider.kind.trim()) {
+    throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Provider requires a non-empty kind.");
   }
-  throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Provider must be static or openai-compatible with all required fields.");
+  return config as unknown as TranslationAutomationConfig;
 }
 
 function resolveWithinRoot(root: string, path: string, label: string): string {
@@ -380,42 +382,42 @@ function resolveWithinRoot(root: string, path: string, label: string): string {
 
 async function loadAutomationInputs(root: string, configPath: string): Promise<{
   config: TranslationAutomationConfig;
-  provider: TranslationProvider;
   glossary: GlossaryEntry[];
   memory: TranslationMemory;
   memoryPath?: string;
+  state: TranslationRunState;
+  statePath: string;
+  auditPath: string;
 }> {
   const resolvedConfigPath = resolve(configPath);
   const config = automationConfig(await readJsonFile(resolvedConfigPath));
   const configDirectory = dirname(resolvedConfigPath);
-  let provider: TranslationProvider;
-  if (config.provider.kind === "static") {
-    const dataPath = resolve(configDirectory, config.provider.dataFile);
-    const data = await readJsonFile(dataPath) as { translations?: unknown };
-    if (!data || typeof data.translations !== "object" || data.translations === null || Array.isArray(data.translations)
-      || Object.values(data.translations as Record<string, unknown>).some((value) => typeof value !== "string")) {
-      throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Static provider data requires a translations object.");
-    }
-    provider = new StaticTranslationProvider({ translations: data.translations as Record<string, string> });
-  } else {
-    const apiKey = process.env[config.provider.apiKeyEnv];
-    if (!apiKey) throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", `Required API key environment variable is not set: ${config.provider.apiKeyEnv}`);
-    provider = new OpenAICompatibleTranslationProvider({
-      endpoint: config.provider.endpoint,
-      model: config.provider.model,
-      apiKey,
-      ...(config.provider.timeoutMs === undefined ? {} : { timeoutMs: config.provider.timeoutMs }),
-      ...(config.provider.organization ? { organization: config.provider.organization } : {})
-    });
-  }
   const glossary = config.glossaryFile
-    ? validateGlossary(await readJsonFile(resolve(configDirectory, config.glossaryFile)))
+    ? validateGlossary(await readJsonFile(resolveWithinRoot(root, resolve(configDirectory, config.glossaryFile), "glossaryFile")))
     : [];
   const memoryPath = config.memoryFile ? resolveWithinRoot(root, config.memoryFile, "memoryFile") : undefined;
   const memory = memoryPath && await pathExists(memoryPath)
     ? validateTranslationMemory(await readJsonFile(memoryPath))
     : emptyTranslationMemory();
-  return { config, provider, glossary, memory, ...(memoryPath ? { memoryPath } : {}) };
+  const statePath = resolveWithinRoot(root, config.stateFile ?? ".codex/translation-state.json", "stateFile");
+  const state = await pathExists(statePath)
+    ? validateTranslationRunState(await readJsonFile(statePath))
+    : emptyTranslationRunState();
+  const auditPath = resolveWithinRoot(root, config.auditFile ?? ".codex/translation-audit.jsonl", "auditFile");
+  return { config, glossary, memory, state, statePath, auditPath, ...(memoryPath ? { memoryPath } : {}) };
+}
+
+async function createConfiguredProvider(
+  root: string,
+  configPath: string,
+  config: TranslationAutomationConfig
+): Promise<TranslationProvider> {
+  const configDirectory = dirname(resolve(configPath));
+  return createDefaultProviderRegistry().create(config.provider, {
+    readJson: readJsonFile,
+    resolvePath: (path) => resolveWithinRoot(root, resolve(configDirectory, path), "provider file"),
+    environment: process.env
+  });
 }
 
 function automaticTranslationId(sourceId: string, language: string): string {
@@ -464,8 +466,9 @@ async function translationCommand(action: string | undefined, args: string[]): P
       const id = optionValue(args, "--id");
       const output = optionValue(args, "--output");
       if (!sourceId || !language || !id || !output) throw new TranslationError("CLI-1901", "Usage: codex translation create --source ID --language CODE --id ID --output FILE [--root DIR] [--force] [--json]");
-      const outputPath = resolve(output);
-      const root = resolve(optionValue(args, "--root") ?? await discoverProjectRoot(outputPath));
+      const requestedOutputPath = resolve(output);
+      const root = resolve(optionValue(args, "--root") ?? await discoverProjectRoot(requestedOutputPath));
+      const outputPath = resolveWithinRoot(root, requestedOutputPath, "translation output");
       const outputExists = await pathExists(outputPath);
       if (outputExists && !args.includes("--force")) throw new TranslationError("CLI-1903", `Refusing to overwrite existing file without --force: ${outputPath}`);
       const compiled = await compileProject(root);
@@ -539,8 +542,8 @@ async function translationCommand(action: string | undefined, args: string[]): P
         const existingSourceFile = existing?.metadata?.source && typeof existing.metadata.source === "object"
           ? (existing.metadata.source as { file?: unknown }).file
           : undefined;
-        const output = resolve(optionValue(args, "--output")
-          ?? (typeof existingSourceFile === "string" ? resolve(root, existingSourceFile) : resolve(outputDirectory, candidate.language, `${candidate.sourceId.toLowerCase()}.md`)));
+        const output = resolveWithinRoot(root, optionValue(args, "--output")
+          ?? (typeof existingSourceFile === "string" ? existingSourceFile : relative(root, resolve(outputDirectory, candidate.language, `${candidate.sourceId.toLowerCase()}.md`))), "translation output");
         return { item: { sourceId: candidate.sourceId, targetLanguage: candidate.language, id } satisfies AutomationItem, output, existing };
       });
       const plannedIds = new Set<string>();
@@ -552,10 +555,6 @@ async function translationCommand(action: string | undefined, args: string[]): P
         plannedOutputs.add(entry.output);
       }
       const force = args.includes("--force");
-      for (const entry of planned) {
-        if (entry.existing && !force) throw new TranslationError("CODEX_TRANSLATION_ID_EXISTS", `Translation already exists: ${entry.existing.id}`);
-        if (await pathExists(entry.output) && !force) throw new TranslationError("CLI-1903", `Refusing to overwrite existing file without --force: ${entry.output}`);
-      }
       if (args.includes("--dry-run")) {
         const result = { root, provider: config.provider.kind, planned: planned.map(({ item, output }) => ({ ...item, output })) };
         if (json) writeJson(success(command, result));
@@ -566,44 +565,197 @@ async function translationCommand(action: string | undefined, args: string[]): P
         return;
       }
       const inputs = await loadAutomationInputs(root, configPath);
+      const skipped: Array<{ item: AutomationItem; output: string; reason: string }> = [];
+      const runnable: typeof planned = [];
+      for (const entry of planned) {
+        const stateItem = inputs.state.items[runItemKey(entry.item)];
+        if (!force && stateItem?.status === "completed" && await pathExists(entry.output)) {
+          const outputContent = await readFile(entry.output, "utf8");
+          if (stateItem.outputHash === contentHash(outputContent)) {
+            skipped.push({ item: entry.item, output: entry.output, reason: "checkpoint and output verified" });
+            continue;
+          }
+          throw new TranslationError("CODEX_TRANSLATION_STATE_INVALID", `Completed checkpoint does not match output: ${entry.output}`);
+        }
+        if (!force && entry.existing) {
+          const outputContent = await readFile(entry.output, "utf8");
+          inputs.state.items[runItemKey(entry.item)] = {
+            sourceId: entry.item.sourceId,
+            targetLanguage: entry.item.targetLanguage,
+            id: entry.item.id,
+            output: relative(root, entry.output).replaceAll("\\", "/"),
+            status: "completed",
+            attempts: stateItem?.attempts ?? 0,
+            retries: stateItem?.retries ?? 0,
+            updatedAt: new Date().toISOString(),
+            outputHash: contentHash(outputContent)
+          };
+          skipped.push({ item: entry.item, output: entry.output, reason: "translation already completed" });
+          continue;
+        }
+        if (!force && await pathExists(entry.output)) {
+          throw new TranslationError("CLI-1903", `Refusing to overwrite unmanaged existing file without --force: ${entry.output}`);
+        }
+        runnable.push(entry);
+      }
       const replacedIds = new Set(force ? planned.flatMap((entry) => entry.existing ? [entry.existing.id] : []) : []);
       const project = replacedIds.size
         ? { ...compiled.project, objects: compiled.project.objects.filter((object) => !replacedIds.has(object.id)) }
         : compiled.project;
-      const report = await runTranslationBatch(project, context.registry, planned.map((entry) => entry.item), {
-        provider: inputs.provider,
+      const provider = runnable.length > 0
+        ? await createConfiguredProvider(root, configPath, inputs.config)
+        : undefined;
+      const checkpointTime = new Date().toISOString();
+      for (const entry of runnable) {
+        const key = runItemKey(entry.item);
+        const previous = inputs.state.items[key];
+        inputs.state.items[key] = {
+          sourceId: entry.item.sourceId,
+          targetLanguage: entry.item.targetLanguage,
+          id: entry.item.id,
+          output: relative(root, entry.output).replaceAll("\\", "/"),
+          status: "running",
+          attempts: previous?.attempts ?? 0,
+          retries: previous?.retries ?? 0,
+          updatedAt: checkpointTime
+        };
+      }
+      await atomicWrite(inputs.statePath, `${JSON.stringify(inputs.state, null, 2)}\n`);
+      await mkdir(dirname(inputs.auditPath), { recursive: true });
+      for (const entry of skipped) {
+        await appendFile(inputs.auditPath, `${JSON.stringify({
+          timestamp: checkpointTime,
+          event: "skipped",
+          sourceId: entry.item.sourceId,
+          targetLanguage: entry.item.targetLanguage,
+          translationId: entry.item.id,
+          reason: entry.reason
+        })}\n`, "utf8");
+      }
+      let checkpointQueue = Promise.resolve();
+      async function checkpoint<T>(operation: () => Promise<T>): Promise<T> {
+        let release = () => {};
+        const previous = checkpointQueue;
+        checkpointQueue = new Promise<void>((resolve) => { release = resolve; });
+        await previous;
+        try {
+          return await operation();
+        } finally {
+          release();
+        }
+      }
+      const report = await runTranslationBatch(project, context.registry, runnable.map((entry) => entry.item), {
+        provider: provider ?? {
+          id: inputs.config.provider.kind,
+          async translate() {
+            throw new TranslationError("CODEX_TRANSLATION_PROVIDER_CONFIG", "Provider was not initialized for an empty run.");
+          }
+        },
         glossary: inputs.glossary,
         memory: inputs.memory,
         concurrency: inputs.config.concurrency,
         requestsPerMinute: inputs.config.requestsPerMinute,
-        maxRetries: inputs.config.maxRetries
+        maxRetries: inputs.config.maxRetries,
+        fuzzyThreshold: inputs.config.fuzzyThreshold,
+        itemTimeoutMs: inputs.config.itemTimeoutMs,
+        maxSourceBytes: inputs.config.maxSourceBytes,
+        allowSensitiveContent: inputs.config.allowSensitiveContent,
+        onResult: (automationResult) => checkpoint(async () => {
+          const entry = runnable.find((candidate) => candidate.item.id === automationResult.item.id);
+          if (!entry) return;
+          const rendered = parseMarkdownDocument(automationResult.markdown, entry.output);
+          if (rendered.attributes.id !== automationResult.object.id
+            || rendered.attributes.type !== "translation"
+            || rendered.attributes.language !== automationResult.object.language
+            || rendered.attributes.status !== "draft") {
+            throw new TranslationError("CODEX_TRANSLATION_QA_FRONT_MATTER", "Generated Markdown front matter does not match the translation object.");
+          }
+          const validation = validateProject(
+            { ...project, objects: [...project.objects, automationResult.object] },
+            { registry: context.registry, profile: context.semanticProfile }
+          );
+          const validationErrors = validation.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
+          if (validationErrors.length) {
+            throw new TranslationError(
+              "CODEX_TRANSLATION_BATCH_PARTIAL",
+              `Generated object failed CODEX validation: ${validationErrors.map((diagnostic) => `${diagnostic.code} ${diagnostic.message}`).join("; ")}`
+            );
+          }
+          await atomicWrite(entry.output, automationResult.markdown);
+          if (inputs.memoryPath) await atomicWrite(inputs.memoryPath, `${JSON.stringify(inputs.memory, null, 2)}\n`);
+          const completedAt = new Date().toISOString();
+          inputs.state.items[runItemKey(entry.item)] = {
+            sourceId: entry.item.sourceId,
+            targetLanguage: entry.item.targetLanguage,
+            id: entry.item.id,
+            output: relative(root, entry.output).replaceAll("\\", "/"),
+            status: "completed",
+            attempts: automationResult.attempts,
+            retries: automationResult.retries,
+            updatedAt: completedAt,
+            outputHash: contentHash(automationResult.markdown)
+          };
+          await atomicWrite(inputs.statePath, `${JSON.stringify(inputs.state, null, 2)}\n`);
+          await appendFile(inputs.auditPath, `${JSON.stringify(auditForResult(automationResult, completedAt))}\n`, "utf8");
+        }),
+        onFailure: (failure) => checkpoint(async () => {
+          const entry = runnable.find((candidate) => candidate.item.id === failure.item.id);
+          if (!entry) return;
+          const failedAt = new Date().toISOString();
+          const previous = inputs.state.items[runItemKey(entry.item)];
+          inputs.state.items[runItemKey(entry.item)] = {
+            sourceId: entry.item.sourceId,
+            targetLanguage: entry.item.targetLanguage,
+            id: entry.item.id,
+            output: relative(root, entry.output).replaceAll("\\", "/"),
+            status: "failed",
+            attempts: failure.attempts ?? previous?.attempts ?? 0,
+            retries: failure.retries ?? previous?.retries ?? 0,
+            updatedAt: failedAt,
+            errorCode: failure.code,
+            errorMessage: safeAuditError(failure.message)
+          };
+          const failedSource = project.objects.find((object) => object.id === entry.item.sourceId);
+          if (failedSource?.language) {
+            delete inputs.memory.entries[translationMemoryKey({
+              sourceId: failedSource.id,
+              sourceText: extractObjectText(failedSource),
+              sourceLanguage: failedSource.language,
+              targetLanguage: entry.item.targetLanguage,
+              glossary: inputs.glossary
+            })];
+            if (inputs.memoryPath) await atomicWrite(inputs.memoryPath, `${JSON.stringify(inputs.memory, null, 2)}\n`);
+          }
+          await atomicWrite(inputs.statePath, `${JSON.stringify(inputs.state, null, 2)}\n`);
+          await appendFile(inputs.auditPath, `${JSON.stringify({
+            timestamp: failedAt,
+            event: "failed",
+            sourceId: entry.item.sourceId,
+            targetLanguage: entry.item.targetLanguage,
+            translationId: entry.item.id,
+            provider: provider?.id ?? inputs.config.provider.kind,
+            model: provider?.model,
+            durationMs: failure.durationMs,
+            attempts: failure.attempts,
+            retries: failure.retries,
+            errorCode: failure.code,
+            errorMessage: safeAuditError(failure.message)
+          })}\n`, "utf8");
+        })
       });
-      if (inputs.memoryPath) await atomicWrite(inputs.memoryPath, `${JSON.stringify(report.memory, null, 2)}\n`);
       if (report.failures.length > 0 && !args.includes("--allow-partial")) {
         throw new TranslationError("CODEX_TRANSLATION_BATCH_PARTIAL", report.failures.map((failure) => `${failure.item.sourceId}/${failure.item.targetLanguage}: ${failure.message}`).join("; "));
       }
-      const generatedProject = { ...project, objects: [...project.objects, ...report.results.map((item) => item.object)] };
-      const generatedValidation = validateProject(generatedProject, { registry: context.registry, profile: context.semanticProfile });
-      const generatedErrors = generatedValidation.diagnostics.filter((diagnostic) => diagnostic.severity === "error");
-      if (generatedErrors.length > 0) {
-        throw new TranslationError(
-          "CODEX_TRANSLATION_BATCH_PARTIAL",
-          `Generated objects failed CODEX validation: ${generatedErrors.map((diagnostic) => `${diagnostic.code} ${diagnostic.message}`).join("; ")}`
-        );
-      }
-      const outputs: string[] = [];
-      for (const result of report.results) {
-        const output = planned.find((entry) => entry.item.id === result.item.id)?.output;
-        if (!output) continue;
-        await atomicWrite(output, result.markdown);
-        outputs.push(output);
-      }
+      const outputs = report.results
+        .map((automationResult) => runnable.find((entry) => entry.item.id === automationResult.item.id)?.output)
+        .filter((output): output is string => Boolean(output));
       const result = {
         root,
-        provider: inputs.provider.id,
+        provider: provider?.id ?? inputs.config.provider.kind,
         generated: report.results.length,
         failed: report.failures.length,
         cacheHits: report.results.filter((item) => item.cacheHit).length,
+        skipped: skipped.length,
         outputs,
         results: report.results.map((item) => ({
           id: item.object.id,
@@ -611,14 +763,17 @@ async function translationCommand(action: string | undefined, args: string[]): P
           language: item.item.targetLanguage,
           quality: item.quality,
           cacheHit: item.cacheHit,
+          memoryMatch: item.memoryMatch,
           attempts: item.attempts,
+          retries: item.retries,
+          durationMs: item.durationMs,
           usage: item.usage
         })),
         failures: report.failures
       };
       if (json) writeJson(success(command, result));
       else {
-        console.log(`GENERATED: ${result.generated}; FAILED: ${result.failed}; CACHE HITS: ${result.cacheHits}`);
+        console.log(`GENERATED: ${result.generated}; SKIPPED: ${result.skipped}; FAILED: ${result.failed}; CACHE HITS: ${result.cacheHits}`);
         for (const output of outputs) console.log(`WROTE: ${output}`);
       }
       if (report.failures.length > 0) process.exitCode = 1;
@@ -633,7 +788,7 @@ async function translationCommand(action: string | undefined, args: string[]): P
       if (configOption) {
         const configPath = resolve(configOption);
         const config = automationConfig(await readJsonFile(configPath));
-        if (config.glossaryFile) glossary = validateGlossary(await readJsonFile(resolve(dirname(configPath), config.glossaryFile)));
+        if (config.glossaryFile) glossary = validateGlossary(await readJsonFile(resolveWithinRoot(root, resolve(dirname(configPath), config.glossaryFile), "glossaryFile")));
       }
       const objectsById = new Map(compiled.project.objects.map((object) => [object.id, object]));
       const results = compiled.project.objects.filter((object) => object.type === "translation").map((translation) => {
@@ -672,14 +827,15 @@ async function translationCommand(action: string | undefined, args: string[]): P
       const fileOption = optionValue(args, "--file");
       const requestedStatus = optionValue(args, "--status");
       const reviewer = optionValue(args, "--reviewer");
-      if (!fileOption || !requestedStatus || !["draft", "review", "approved"].includes(requestedStatus)) {
-        throw new TranslationError("CLI-1901", "Usage: codex translation review --file FILE --status draft|review|approved [--reviewer NAME] [--config FILE] [--root DIR] [--json]");
+      if (!fileOption || !requestedStatus || !["draft", "review", "approved", "published"].includes(requestedStatus)) {
+        throw new TranslationError("CLI-1901", "Usage: codex translation review --file FILE --status draft|review|approved|published [--reviewer NAME] [--config FILE] [--root DIR] [--json]");
       }
       if (requestedStatus !== "draft" && !reviewer) {
         throw new TranslationError("CODEX_TRANSLATION_REVIEW_REQUIRED", "A reviewer is required for review or approved status.");
       }
-      const file = resolve(fileOption);
-      const root = resolve(optionValue(args, "--root") ?? await discoverProjectRoot(file));
+      const requestedFile = resolve(fileOption);
+      const root = resolve(optionValue(args, "--root") ?? await discoverProjectRoot(requestedFile));
+      const file = resolveWithinRoot(root, requestedFile, "review file");
       const source = await readFile(file, "utf8");
       const document = parseMarkdownDocument(source, file);
       const id = typeof document.attributes.id === "string" ? document.attributes.id : undefined;
@@ -690,12 +846,21 @@ async function translationCommand(action: string | undefined, args: string[]): P
       const allowedTransitions: Record<string, string[]> = {
         draft: ["draft", "review"],
         review: ["draft", "review", "approved"],
-        approved: ["draft", "approved"]
+        approved: ["approved", "published"],
+        published: ["published"]
       };
       if (!currentStatus || !allowedTransitions[currentStatus]?.includes(requestedStatus)) {
         throw new TranslationError("CODEX_TRANSLATION_REVIEW_BLOCKED", `Invalid review transition: ${currentStatus ?? "unknown"} -> ${requestedStatus}`);
       }
-      if (requestedStatus === "approved") {
+      if (requestedStatus === "approved" || requestedStatus === "published") {
+        if (requestedStatus === "approved"
+          && (typeof document.attributes.reviewedBy !== "string" || typeof document.attributes.reviewedAt !== "string")) {
+          throw new TranslationError("CODEX_TRANSLATION_REVIEW_BLOCKED", "Approval requires a recorded review with reviewer and reviewedAt.");
+        }
+        if (requestedStatus === "published"
+          && (typeof document.attributes.approvedBy !== "string" || typeof document.attributes.approvedAt !== "string")) {
+          throw new TranslationError("CODEX_TRANSLATION_REVIEW_BLOCKED", "Publication requires recorded approval with approver and approvedAt.");
+        }
         const compiled = await compileProject(root);
         const translation = compiled.project.objects.find((object) => object.id === id);
         const sourceId = translation?.derivedFrom?.length === 1 ? translation.derivedFrom[0] : undefined;
@@ -708,7 +873,7 @@ async function translationCommand(action: string | undefined, args: string[]): P
         if (configOption) {
           const configPath = resolve(configOption);
           const config = automationConfig(await readJsonFile(configPath));
-          if (config.glossaryFile) reviewGlossary = validateGlossary(await readJsonFile(resolve(dirname(configPath), config.glossaryFile)));
+          if (config.glossaryFile) reviewGlossary = validateGlossary(await readJsonFile(resolveWithinRoot(root, resolve(dirname(configPath), config.glossaryFile), "glossaryFile")));
         }
         const quality = assessTranslationQuality({
           sourceId: original.id,
@@ -721,21 +886,50 @@ async function translationCommand(action: string | undefined, args: string[]): P
           throw new TranslationError("CODEX_TRANSLATION_REVIEW_BLOCKED", quality.issues.map((issue) => issue.message).join("; "));
         }
       }
-      const reviewedAt = new Date().toISOString();
+      const transitionAt = new Date().toISOString();
       const updated = updateMarkdownFrontMatter(source, {
         status: requestedStatus,
-        ...(reviewer ? { reviewedBy: reviewer, reviewedAt } : {})
+        ...(reviewer && requestedStatus === "review" ? { reviewedBy: reviewer, reviewedAt: transitionAt } : {}),
+        ...(reviewer && requestedStatus === "approved" ? { approvedBy: reviewer, approvedAt: transitionAt } : {}),
+        ...(reviewer && requestedStatus === "published" ? { publishedBy: reviewer, publishedAt: transitionAt } : {})
       });
       await atomicWrite(file, updated);
-      const result = { id, file, status: requestedStatus, reviewer, ...(reviewer ? { reviewedAt } : {}) };
+      const result = { id, file, status: requestedStatus, reviewer, ...(reviewer ? { transitionAt } : {}) };
       if (json) writeJson(success(command, result));
       else console.log(`REVIEWED: ${id} -> ${requestedStatus}${reviewer ? ` by ${reviewer}` : ""}`);
       return;
     }
     if (action === "memory") {
+      const memoryAction = ["export", "import", "stats"].includes(args[0] ?? "") ? args[0] : undefined;
       const file = optionValue(args, "--file");
-      if (!file) throw new TranslationError("CLI-1901", "Usage: codex translation memory --file FILE [--json]");
-      const memory = validateTranslationMemory(await readJsonFile(resolve(file)));
+      if (!file) throw new TranslationError("CLI-1901", "Usage: codex translation memory [export|import] --file FILE [--input FILE|--output FILE] [--json]");
+      const memoryPath = resolve(file);
+      const memory = await pathExists(memoryPath)
+        ? validateTranslationMemory(await readJsonFile(memoryPath))
+        : emptyTranslationMemory();
+      if (memoryAction === "export") {
+        const output = optionValue(args, "--output");
+        if (!output) throw new TranslationError("CLI-1901", "Usage: codex translation memory export --file FILE --output FILE [--json]");
+        await atomicWrite(resolve(output), `${JSON.stringify(memory, null, 2)}\n`);
+        const result = { file: memoryPath, output: resolve(output), entries: Object.keys(memory.entries).length };
+        if (json) writeJson(success(command, result));
+        else console.log(`EXPORTED: ${result.entries} translation memory entries -> ${result.output}`);
+        return;
+      }
+      if (memoryAction === "import") {
+        const input = optionValue(args, "--input");
+        if (!input) throw new TranslationError("CLI-1901", "Usage: codex translation memory import --file FILE --input FILE [--json]");
+        const imported = validateTranslationMemory(await readJsonFile(resolve(input)));
+        const merged = mergeTranslationMemories(memory, imported);
+        await atomicWrite(memoryPath, `${JSON.stringify(merged.memory, null, 2)}\n`);
+        const result = { file: memoryPath, input: resolve(input), entries: Object.keys(memory.entries).length, added: merged.added, duplicates: merged.duplicates };
+        if (json) writeJson(success(command, result));
+        else console.log(`IMPORTED: ${result.added} added; ${result.duplicates} duplicate(s); total=${result.entries}`);
+        return;
+      }
+      if (memoryAction && !["stats"].includes(memoryAction)) {
+        throw new TranslationError("CLI-1901", "Usage: codex translation memory [export|import] --file FILE [--input FILE|--output FILE] [--json]");
+      }
       const entries = Object.values(memory.entries);
       const result = {
         file: resolve(file),

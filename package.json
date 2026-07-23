@@ -19,6 +19,7 @@
     "translation:fixture-run": "node apps/cli/dist/index.js translation run reference/hermetica --config=reference/hermetica/translation.config.json --source=FRAG-0001 --language=en --id=TRANS-9000 --output=.codex-ci/translation-en.md --json",
     "translation:qa": "node apps/cli/dist/index.js translation qa reference/hermetica --config=reference/hermetica/translation.config.json --json",
     "translation:memory": "node apps/cli/dist/index.js translation memory --file=reference/hermetica/.codex-ci/translation-memory.json --json",
+    "translation:integration": "node --test --test-reporter=spec tests/translation-automation.test.mjs tests/translation-production.test.mjs tests/translation-cli.test.mjs",
     "validate": "node apps/cli/dist/index.js validate examples/minimal-project.json",
     "validate:strict": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=strict",
     "validate:hermetica": "node apps/cli/dist/index.js validate examples/minimal-project.json --profile=hermetica",

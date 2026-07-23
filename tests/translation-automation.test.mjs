@@ -6,6 +6,7 @@ import {
   OpenAICompatibleTranslationProvider,
   runTranslationBatch,
   StaticTranslationProvider,
+  TranslationProviderError,
   translationMemoryKey,
   validateGlossary,
   validateTranslationMemory
@@ -70,7 +71,7 @@ test("provider failures are retried with bounded attempts", async () => {
     id: "flaky",
     async translate() {
       calls += 1;
-      if (calls === 1) throw new Error("temporary");
+      if (calls === 1) throw new TranslationProviderError("CODEX_TRANSLATION_PROVIDER_NETWORK", "temporary", "network", true);
       return { text: "Привет {{name}}", provider: "flaky" };
     }
   };
@@ -135,6 +136,8 @@ test("OpenAI-compatible provider sends the constrained request and reports usage
     const body = JSON.parse(options.body);
     assert.equal(body.temperature, 0);
     assert.equal(body.model, "translator");
+    assert.match(body.messages[0].content, /untrusted document/i);
+    assert.equal(JSON.parse(body.messages[1].content).untrustedDocument, true);
     return new Response(JSON.stringify({
       choices: [{ message: { content: "Привет {{name}}" } }],
       usage: { prompt_tokens: 12, completion_tokens: 4 }

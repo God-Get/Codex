@@ -37,7 +37,7 @@ node apps/cli/dist/index.js translation run reference/hermetica \
 node apps/cli/dist/index.js translation qa reference/hermetica --json
 ```
 
-Automation supports deterministic offline fixtures and opt-in OpenAI-compatible HTTPS providers. Credentials are read only from the configured environment variable; dry-run and CI never require or call an external service. See `guides/translations.md` for provider configuration, memory, QA, review, provenance, and operational safeguards.
+Automation supports deterministic offline fixtures, extensible providers, opt-in OpenAI-compatible HTTPS services, transient-only retry, durable resume, exact/fuzzy memory, terminology policy, structural QA, audit, and recorded review through publication. Credentials are read only from the configured environment variable; dry-run and CI never require or call an external service. See `guides/translations.md` for provider configuration, deployment, memory, QA, review, provenance, and security controls.
 
 ## Requirements
 

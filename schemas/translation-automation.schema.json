@@ -8,7 +8,7 @@
   "properties": {
     "$schema": {"type": "string"},
     "provider": {
-      "oneOf": [
+      "anyOf": [
         {
           "type": "object",
           "additionalProperties": false,
@@ -28,16 +28,33 @@
             "model": {"type": "string", "minLength": 1},
             "apiKeyEnv": {"type": "string", "pattern": "^[A-Z_][A-Z0-9_]*$"},
             "timeoutMs": {"type": "integer", "minimum": 1000, "maximum": 600000},
-            "organization": {"type": "string", "minLength": 1}
+            "organization": {"type": "string", "minLength": 1},
+            "maxResponseBytes": {"type": "integer", "minimum": 1, "maximum": 104857600},
+            "inputCostPerMillion": {"type": "number", "minimum": 0},
+            "outputCostPerMillion": {"type": "number", "minimum": 0}
+          }
+        },
+        {
+          "description": "Extension provider. A registered provider factory validates provider-specific properties.",
+          "type": "object",
+          "required": ["kind"],
+          "properties": {
+            "kind": {"type": "string", "minLength": 1}
           }
         }
       ]
     },
     "glossaryFile": {"type": "string", "minLength": 1},
     "memoryFile": {"type": "string", "minLength": 1},
+    "stateFile": {"type": "string", "minLength": 1},
+    "auditFile": {"type": "string", "minLength": 1},
     "outputDirectory": {"type": "string", "minLength": 1},
     "concurrency": {"type": "integer", "minimum": 1, "maximum": 16},
     "requestsPerMinute": {"type": "number", "exclusiveMinimum": 0},
-    "maxRetries": {"type": "integer", "minimum": 0, "maximum": 10}
+    "maxRetries": {"type": "integer", "minimum": 0, "maximum": 10},
+    "fuzzyThreshold": {"type": "number", "minimum": 0, "maximum": 1},
+    "itemTimeoutMs": {"type": "integer", "minimum": 1000, "maximum": 3600000},
+    "maxSourceBytes": {"type": "integer", "minimum": 1, "maximum": 104857600},
+    "allowSensitiveContent": {"type": "boolean"}
   }
 }

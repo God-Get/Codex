@@ -6,8 +6,14 @@
   },
   "glossaryFile": "fixtures/glossary.json",
   "memoryFile": ".codex-ci/translation-memory.json",
+  "stateFile": ".codex-ci/translation-state.json",
+  "auditFile": ".codex-ci/translation-audit.jsonl",
   "outputDirectory": "translations",
   "concurrency": 2,
   "requestsPerMinute": 60,
-  "maxRetries": 2
+  "maxRetries": 2,
+  "fuzzyThreshold": 0.92,
+  "itemTimeoutMs": 300000,
+  "maxSourceBytes": 8388608,
+  "allowSensitiveContent": false
 }
