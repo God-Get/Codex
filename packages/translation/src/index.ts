@@ -138,7 +138,14 @@ function provenanceCycles(translations: CodexObject[]): Set<string> {
 export function analyzeTranslationStatus(project: CodexProject, registry: RegistryData): TranslationStatusReport {
   const objectsById = new Map(project.objects.map((object) => [object.id, object]));
   const translations = project.objects.filter((object) => object.type === "translation");
-  const sourceObjects = project.objects.filter((object) => object.type !== "translation" && registry.translationRules.sourceTypes.includes(object.type));
+  const directlyTranslatedIds = new Set(
+    translations.map(translationSourceId).filter((value): value is string => Boolean(value))
+  );
+  const sourceObjects = project.objects.filter((object) => {
+    if (object.type === "translation" || !registry.translationRules.sourceTypes.includes(object.type)) return false;
+    const isStructuralContainer = (object.relations ?? []).some((relation) => relation.type === "contains");
+    return directlyTranslatedIds.has(object.id) || !isStructuralContainer;
+  });
   const cyclic = provenanceCycles(translations);
   const orphans: TranslationSummaryItem[] = [];
   const invalidProvenance: InvalidTranslationProvenance[] = [];

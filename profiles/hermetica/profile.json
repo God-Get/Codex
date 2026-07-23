@@ -11,7 +11,7 @@
     "relationTypes": ["parallels", "receives", "attributesTo", "interpretsAs"],
     "languages": ["cop", "syr"],
     "translationRules": {
-      "sourceTypes": ["source", "fragment", "hermeticFragment", "translation"],
+      "sourceTypes": ["work", "edition", "volume", "chapter", "section", "fragment", "source", "translation", "hermeticFragment"],
       "targetLanguages": ["ru", "en"],
       "requiredMetadata": ["translationMode"]
     },
