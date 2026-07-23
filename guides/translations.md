@@ -69,7 +69,7 @@ codex translation run reference/hermetica \
 
 Each successful item is validated and atomically written before the next checkpoint. The state file records completion and the SHA-256 of the output. A repeated command verifies that checksum and skips completed work. Interrupted `running` or `failed` items are eligible for retry; a completed checkpoint whose output was modified is rejected instead of silently overwriting data. `--force` explicitly replaces a managed translation. `--allow-partial` returns completed outputs even when another item fails.
 
-The runner accepts an `AsyncIterable`, keeps only the configured number of requests active, and supports `collectResults: false`. This permits queues larger than 10,000 objects without retaining the corpus of results in memory. Rate limiting is shared across workers.
+The runner accepts an `AsyncIterable`, keeps only the configured number of requests active, supports `collectResults: false`, and can lazily load each source through `resolveSource`. This permits queues larger than 10,000 distinct source objects without retaining source content or the corpus of results in memory. Rate limiting is shared across workers.
 
 ## Translation memory
 

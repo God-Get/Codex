@@ -109,6 +109,7 @@ export interface AutomationOptions {
   onFailure?: (failure: AutomationBatchReport["failures"][number]) => Promise<void> | void;
   collectResults?: boolean;
   random?: () => number;
+  resolveSource?: (sourceId: string) => Promise<CodexObject | undefined> | CodexObject | undefined;
   now?: () => Date;
   sleep?: (milliseconds: number, signal?: AbortSignal) => Promise<void>;
 }
@@ -639,7 +640,9 @@ export async function runTranslationStream(
       );
       try {
         if (itemController.signal.aborted) throw itemController.signal.reason;
-        const source = sourceById.get(item.sourceId);
+        const source = options.resolveSource
+          ? await options.resolveSource(item.sourceId)
+          : sourceById.get(item.sourceId);
         if (!source) throw new TranslationError("CODEX_TRANSLATION_SOURCE_MISSING", `Translation source does not exist: ${item.sourceId}`);
         if (!registry.translationRules.sourceTypes.includes(source.type)) throw new TranslationError("CODEX_TRANSLATION_SOURCE_TYPE", `Object type ${source.type} cannot be a translation source.`);
         if (!source.language) throw new TranslationError("CODEX_TRANSLATION_PROVENANCE_INVALID", `Source ${source.id} has no language.`);

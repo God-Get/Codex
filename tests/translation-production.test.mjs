@@ -268,12 +268,17 @@ test("item timeout cancels a provider that observes the signal", async () => {
 test("streaming runner processes 10000 items with bounded result retention", async () => {
   async function* items() {
     for (let index = 0; index < 10_000; index += 1) {
-      yield { ...item, id: `TRANSLATION-${String(index).padStart(5, "0")}` };
+      yield {
+        sourceId: `FRAGMENT-${String(index).padStart(5, "0")}`,
+        targetLanguage: "ru",
+        id: `TRANSLATION-${String(index).padStart(5, "0")}`
+      };
     }
   }
   let completed = 0;
   let providerCalls = 0;
-  const report = await runTranslationStream(project, loadRegistry(), items(), {
+  let resolvedSources = 0;
+  const report = await runTranslationStream({ ...project, objects: [] }, loadRegistry(), items(), {
     provider: {
       id: "large-fixture",
       async translate() {
@@ -283,9 +288,22 @@ test("streaming runner processes 10000 items with bounded result retention", asy
     },
     concurrency: 8,
     collectResults: false,
+    resolveSource(sourceId) {
+      resolvedSources += 1;
+      return {
+        id: sourceId,
+        type: "fragment",
+        title: sourceId,
+        version: "0.1.0",
+        status: "approved",
+        language: "en",
+        metadata: { content: "Hello {{name}}" }
+      };
+    },
     onResult: () => { completed += 1; }
   });
   assert.equal(completed, 10_000);
+  assert.equal(resolvedSources, 10_000);
   assert.equal(report.results.length, 0);
   assert.equal(report.failures.length, 0);
   assert.equal(providerCalls, 1);
